@@ -1,0 +1,15 @@
+## Interface: 120100
+## Title: SimpleFrame
+## Notes: Optionally replaces the player and target frames with simple health and power bars.
+## Author: dunek
+## Version: 1.0.0
+## SavedVariables: SimpleFrameDB
+## IconTexture: Interface\Icons\INV_Misc_Gear_01
+## Category: User Interface
+
+Secrets.lua
+Core.lua
+UnitFrame.lua
+Auras.lua
+Blizzard.lua
+Options.lua
