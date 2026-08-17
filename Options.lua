@@ -57,8 +57,10 @@ function SF:SetupOptions()
 			"Show the SimpleFrame target health and power bars.")
 		Checkbox("showToT", "Target of target",
 			"Show a small health bar for your target's target.")
-		Checkbox("showCastBar", "Cast bars",
-			"Show a cast bar below the player and target frames.")
+		Checkbox("showCastBarPlayer", "Player cast bar",
+			"Show a cast bar below the player frame.")
+		Checkbox("showCastBarTarget", "Target cast bar",
+			"Show a cast bar below the target frame.")
 		Checkbox("showAuras", "Target auras",
 			"Show buff icons above and your own debuff icons below the target frame.")
 		Checkbox("showCombatIcon", "Combat indicator",

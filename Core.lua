@@ -21,7 +21,8 @@ SF.defaults = {
 	enablePlayer = true,
 	enableTarget = true,
 	showToT = true,
-	showCastBar = true,
+	showCastBarPlayer = true,
+	showCastBarTarget = true,
 	showAuras = true,
 	showCombatIcon = true,
 	hideBlizzardPlayer = false,
@@ -98,6 +99,7 @@ function SF:CreateAllFrames()
 		enableKey = "enablePlayer",
 		showLevel = true,
 		castBar = true,
+		castBarKey = "showCastBarPlayer",
 		combatIcon = true,
 	})
 
@@ -105,6 +107,7 @@ function SF:CreateAllFrames()
 		enableKey = "enableTarget",
 		showLevel = true,
 		castBar = true,
+		castBarKey = "showCastBarTarget",
 		auras = true,
 	})
 

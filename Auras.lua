@@ -89,8 +89,7 @@ end
 -- Distance from the bottom of the frame to the first debuff row, leaving room
 -- for the cast bar so the rows do not shift when a cast starts.
 local function DebuffOffset(frame)
-	local db = SimpleFrameDB
-	if db.showCastBar and frame.castBar then
+	if frame.castBar and frame:CastBarEnabled() then
 		return SF.GAP + SF.CAST_HEIGHT + SF.GAP
 	end
 	return SF.GAP

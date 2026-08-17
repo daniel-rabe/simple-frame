@@ -67,7 +67,7 @@ Options → AddOns → SimpleFrame, or `/sf`.
 
 | Group | Settings |
 |---|---|
-| Frames | Player frame, target frame, target of target, cast bars, target auras, combat indicator, class colored health |
+| Frames | Player frame, target frame, target of target, player cast bar, target cast bar, target auras, combat indicator, class colored health |
 | Size | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both) |
 | Auras | Aura icon size, auras per row |
 | Default Blizzard frames | Hide Blizzard player frame, hide Blizzard target frame |
@@ -115,6 +115,7 @@ path to not reintroducing these errors.
 | `Auras.lua` | Target buff/debuff icon grid and drag placeholders |
 | `Blizzard.lua` | Opt-in hiding of the default frames |
 | `Options.lua` | Settings panel registration |
+| `Icon.tga` | Addon list icon, referenced by `## IconTexture` |
 
 ## License
 

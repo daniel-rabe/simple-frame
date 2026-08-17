@@ -278,11 +278,18 @@ local function CastBarOnUpdate(cb)
 	end
 end
 
+-- Whether this frame's cast bar is turned on. Each frame carries its own
+-- setting key, so the player and target bars toggle independently.
+function UnitFrameMixin:CastBarEnabled()
+	local key = self.opts.castBarKey
+	return (key and SimpleFrameDB[key]) and true or false
+end
+
 function UnitFrameMixin:UpdateCast()
 	local cb = self.castBar
 	if not cb then return end
 
-	if not SimpleFrameDB.showCastBar or not UnitExists(self.unit) then
+	if not self:CastBarEnabled() or not UnitExists(self.unit) then
 		return StopCast(cb)
 	end
 
