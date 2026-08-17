@@ -61,6 +61,8 @@ function SF:SetupOptions()
 			"Show a cast bar below the player and target frames.")
 		Checkbox("showAuras", "Target auras",
 			"Show buff icons above and your own debuff icons below the target frame.")
+		Checkbox("showCombatIcon", "Combat indicator",
+			"Show a small red marker above the player frame while you are in combat.")
 		Checkbox("classColor", "Class colored health",
 			"Color player health bars by class instead of by reaction.")
 

@@ -5,6 +5,10 @@ local addonName, SF = ...
 
 SF.frames = {}
 SF.unlocked = false
+
+-- Driven purely by PLAYER_REGEN_DISABLED/ENABLED plus InCombatLockdown on load,
+-- so the indicator never depends on a value that could come back secret.
+SF.inCombat = false
 -- Bar fills are generated solid-color textures, not texture files - see
 -- SetSolidFill in UnitFrame.lua.
 
@@ -19,6 +23,7 @@ SF.defaults = {
 	showToT = true,
 	showCastBar = true,
 	showAuras = true,
+	showCombatIcon = true,
 	hideBlizzardPlayer = false,
 	hideBlizzardTarget = false,
 	classColor = true,
@@ -78,6 +83,14 @@ function SF:ApplyConfig()
 		end
 	end
 	self:UpdateBlizzardFrames()
+	self:UpdateCombatIndicator()
+end
+
+function SF:UpdateCombatIndicator()
+	local player = self.frames.player
+	if player then
+		player:UpdateCombatIndicator()
+	end
 end
 
 function SF:CreateAllFrames()
@@ -85,6 +98,7 @@ function SF:CreateAllFrames()
 		enableKey = "enablePlayer",
 		showLevel = true,
 		castBar = true,
+		combatIcon = true,
 	})
 
 	self:CreateUnitFrame("target", "target", {
@@ -181,6 +195,7 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 eventFrame:RegisterEvent("UNIT_TARGET")
 
@@ -196,12 +211,20 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 		SF:ApplyConfig()
 
 	elseif event == "PLAYER_ENTERING_WORLD" then
+		SF.inCombat = InCombatLockdown() and true or false
 		SF:UpdateBlizzardFrames()
+		SF:UpdateCombatIndicator()
 		for _, f in pairs(SF.frames) do
 			f:UpdateAll()
 		end
 
+	elseif event == "PLAYER_REGEN_DISABLED" then
+		SF.inCombat = true
+		SF:UpdateCombatIndicator()
+
 	elseif event == "PLAYER_REGEN_ENABLED" then
+		SF.inCombat = false
+		SF:UpdateCombatIndicator()
 		if applyPending then SF:ApplyConfig() end
 		if SF.blizzPending then SF:UpdateBlizzardFrames() end
 

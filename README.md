@@ -26,7 +26,8 @@ folder, so updating is a straight overwrite.
 
 ## Features
 
-- **Player frame** — health bar, power bar, name and level, health text, cast bar.
+- **Player frame** — health bar, power bar, name and level, health text, cast bar,
+  and a small red combat indicator above the top-right corner.
 - **Target frame** — the same, plus aura icons with cooldown swipe, stack counts
   and dispel-colored borders.
 - **Target of target** — a small health bar to the right of the target frame.
@@ -66,7 +67,7 @@ Options → AddOns → SimpleFrame, or `/sf`.
 
 | Group | Settings |
 |---|---|
-| Frames | Player frame, target frame, target of target, cast bars, target auras, class colored health |
+| Frames | Player frame, target frame, target of target, cast bars, target auras, combat indicator, class colored health |
 | Size | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both) |
 | Auras | Aura icon size, auras per row |
 | Default Blizzard frames | Hide Blizzard player frame, hide Blizzard target frame |

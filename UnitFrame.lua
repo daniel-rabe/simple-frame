@@ -4,6 +4,8 @@
 
 local addonName, SF = ...
 
+local COMBAT_ICON_SIZE = 10
+
 local UnitFrameMixin = {}
 SF.UnitFrameMixin = UnitFrameMixin
 
@@ -70,9 +72,33 @@ function UnitFrameMixin:BuildElements()
 		self.powerText:SetPoint("RIGHT", power, "RIGHT", -4, 0)
 	end
 
+	if self.opts.combatIcon then
+		self:BuildCombatIcon()
+	end
+
 	if self.opts.castBar then
 		self:BuildCastBar()
 	end
+end
+
+-- A small solid square just outside the top-right corner, where it cannot
+-- collide with the name or health text. Drawn with SetColorTexture rather than
+-- a texture file so it cannot silently fail to load.
+function UnitFrameMixin:BuildCombatIcon()
+	local icon = self:CreateTexture(nil, "OVERLAY")
+	icon:SetSize(COMBAT_ICON_SIZE, COMBAT_ICON_SIZE)
+	icon:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 0, 2)
+	icon:SetColorTexture(0.9, 0.15, 0.15, 1)
+	icon:Hide()
+
+	self.combatIcon = icon
+end
+
+function UnitFrameMixin:UpdateCombatIndicator()
+	local icon = self.combatIcon
+	if not icon then return end
+
+	icon:SetShown(SF.inCombat and SimpleFrameDB.showCombatIcon and true or false)
 end
 
 function UnitFrameMixin:BuildCastBar()
