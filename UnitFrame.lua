@@ -4,7 +4,7 @@
 
 local addonName, SF = ...
 
-local COMBAT_ICON_SIZE = 10
+local floor, max = math.floor, math.max
 
 local UnitFrameMixin = {}
 SF.UnitFrameMixin = UnitFrameMixin
@@ -72,8 +72,18 @@ function UnitFrameMixin:BuildElements()
 		self.powerText:SetPoint("RIGHT", power, "RIGHT", -4, 0)
 	end
 
-	if self.opts.combatIcon then
-		self:BuildCombatIcon()
+	if self.opts.infoText then
+		local info = self:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		info:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, SF.GAP)
+		info:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 0, SF.GAP)
+		info:SetJustifyH("LEFT")
+		info:SetWordWrap(false)
+		info:SetTextColor(0.9, 0.82, 0.55)
+		self.infoText = info
+	end
+
+	if self.opts.combatBorder then
+		self:BuildCombatBorder()
 	end
 
 	if self.opts.castBar then
@@ -81,24 +91,52 @@ function UnitFrameMixin:BuildElements()
 	end
 end
 
--- A small solid square just outside the top-right corner, where it cannot
--- collide with the name or health text. Drawn with SetColorTexture rather than
--- a texture file so it cannot silently fail to load.
-function UnitFrameMixin:BuildCombatIcon()
-	local icon = self:CreateTexture(nil, "OVERLAY")
-	icon:SetSize(COMBAT_ICON_SIZE, COMBAT_ICON_SIZE)
-	icon:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 0, 2)
-	icon:SetColorTexture(0.9, 0.15, 0.15, 1)
-	icon:Hide()
+-- Four 1px edges just outside the frame rather than one inset texture behind
+-- it: a single backdrop would also show through the 1px seam between the health
+-- and power bars, drawing a red line across the middle of the frame.
+function UnitFrameMixin:BuildCombatBorder()
+	local edges = {}
 
-	self.combatIcon = icon
+	local function Edge()
+		local t = self:CreateTexture(nil, "OVERLAY")
+		t:SetColorTexture(0.9, 0.15, 0.15, 1)
+		t:Hide()
+		edges[#edges + 1] = t
+		return t
+	end
+
+	-- Top and bottom run 1px wide on each side so the corners close up.
+	local top = Edge()
+	top:SetPoint("BOTTOMLEFT", self, "TOPLEFT", -1, 0)
+	top:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 1, 0)
+	top:SetHeight(1)
+
+	local bottom = Edge()
+	bottom:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -1, 0)
+	bottom:SetPoint("TOPRIGHT", self, "BOTTOMRIGHT", 1, 0)
+	bottom:SetHeight(1)
+
+	local left = Edge()
+	left:SetPoint("TOPRIGHT", self, "TOPLEFT", 0, 0)
+	left:SetPoint("BOTTOMRIGHT", self, "BOTTOMLEFT", 0, 0)
+	left:SetWidth(1)
+
+	local right = Edge()
+	right:SetPoint("TOPLEFT", self, "TOPRIGHT", 0, 0)
+	right:SetPoint("BOTTOMLEFT", self, "BOTTOMRIGHT", 0, 0)
+	right:SetWidth(1)
+
+	self.combatBorder = edges
 end
 
 function UnitFrameMixin:UpdateCombatIndicator()
-	local icon = self.combatIcon
-	if not icon then return end
+	local edges = self.combatBorder
+	if not edges then return end
 
-	icon:SetShown(SF.inCombat and SimpleFrameDB.showCombatIcon and true or false)
+	local show = SF.inCombat and SimpleFrameDB.showCombatBorder and true or false
+	for i = 1, #edges do
+		edges[i]:SetShown(show)
+	end
 end
 
 function UnitFrameMixin:BuildCastBar()
@@ -147,6 +185,57 @@ function UnitFrameMixin:UpdateName()
 	else
 		self.nameText:SetText(name or "")
 	end
+end
+
+-- Plenty of NPCs genuinely report their creature type as "Not specified",
+-- which is noise on the frame. Prefer the client's own localized constant so
+-- this keeps working outside enUS, and fall back to the literal.
+local NOT_SPECIFIED = _G.CREATURE_TYPE_NOT_SPECIFIED or "Not specified"
+
+-- "normal" is deliberately absent: an ordinary mob contributes no label, so the
+-- line reads just "Humanoid" rather than "Normal Humanoid".
+local CLASSIFICATIONS = {
+	worldboss = "Boss",
+	rareelite = "Rare Elite",
+	elite = "Elite",
+	rare = "Rare",
+	minus = "Minion",
+}
+
+-- Classification and creature type above the frame, e.g. "Rare Elite Beast" or
+-- "Night Elf Druid". Every read goes through SF.Plain, so only values that are
+-- actually readable reach the concat - a secret contributes nothing instead of
+-- raising.
+function UnitFrameMixin:UpdateInfoText()
+	local fs = self.infoText
+	if not fs then return end
+
+	if not SimpleFrameDB.showTargetInfo or not UnitExists(self.unit) then
+		fs:SetText("")
+		return
+	end
+
+	local unit = self.unit
+	local parts = {}
+
+	local classification = SF.Plain(UnitClassification(unit))
+	local label = classification and CLASSIFICATIONS[classification]
+	if label then parts[#parts + 1] = label end
+
+	if SF.Plain(UnitIsPlayer(unit)) then
+		local race = SF.Plain(UnitRace(unit))
+		if race then parts[#parts + 1] = race end
+
+		local class = SF.Plain(UnitClass(unit))
+		if class then parts[#parts + 1] = class end
+	else
+		local creatureType = SF.Plain(UnitCreatureType(unit))
+		if creatureType and creatureType ~= NOT_SPECIFIED then
+			parts[#parts + 1] = creatureType
+		end
+	end
+
+	fs:SetText(table.concat(parts, " "))
 end
 
 function UnitFrameMixin:UpdateHealthColor()
@@ -343,6 +432,7 @@ function UnitFrameMixin:UpdateAll()
 	if not UnitExists(self.unit) then
 		if self.castBar then StopCast(self.castBar) end
 		if self.opts.auras then SF:UpdateAuras(self) end
+		self:UpdateInfoText()
 		return
 	end
 
@@ -350,6 +440,7 @@ function UnitFrameMixin:UpdateAll()
 	self:UpdateHealth()
 	self:UpdateDisplayPower()
 	self:UpdateCast()
+	self:UpdateInfoText()
 
 	if self.opts.auras then
 		SF:UpdateAuras(self)
@@ -387,9 +478,12 @@ function UnitFrameMixin:ApplyLayout()
 	local db = SimpleFrameDB
 	local opts = self.opts
 
+	local heightScale = opts.heightScale or 1
 	local width = db.width * (opts.widthScale or 1)
-	local barHeight = db.height * (opts.heightScale or 1)
-	local powerHeight = self.power and db.powerHeight or 0
+	local barHeight = db.height * heightScale
+	-- Scaled alongside the health bar, so a shrunken frame keeps its
+	-- proportions instead of pairing a small health bar with a full-size one.
+	local powerHeight = self.power and max(1, floor(db.powerHeight * heightScale + 0.5)) or 0
 	local total = barHeight + (powerHeight > 0 and powerHeight + 1 or 0)
 
 	self.anchor:SetSize(width, total)
@@ -451,6 +545,7 @@ local HANDLERS = {
 	-- buff or the debuff row sits above the frame.
 	UNIT_FACTION = "UpdateAll",
 	UNIT_CONNECTION = "UpdateAll",
+	UNIT_CLASSIFICATION_CHANGED = "UpdateInfoText",
 }
 
 local CAST_EVENTS = {
@@ -542,6 +637,18 @@ function SF:CreateUnitFrame(key, unit, opts)
 		GameTooltip:Show()
 	end)
 	f:HookScript("OnLeave", GameTooltip_Hide)
+
+	-- Click-casting addons (Clique, and anything using the same convention)
+	-- pick frames up from this global registry. Setting the key is the whole
+	-- protocol and works in either load order: if Clique is already loaded its
+	-- metatable registers the frame now, and if it loads later it re-registers
+	-- everything it finds already in the table.
+	--
+	-- Clique writes specific attributes (type1, ctrl-type1, ...), which outrank
+	-- the *type1 / *type2 wildcards set above. Bound buttons run the binding,
+	-- unbound ones fall through to target and unit menu.
+	ClickCastFrames = ClickCastFrames or {}
+	ClickCastFrames[f] = true
 
 	SF.frames[key] = f
 	return f

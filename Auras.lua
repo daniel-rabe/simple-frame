@@ -6,13 +6,11 @@ local addonName, SF = ...
 
 local floor = math.floor
 
+-- Plain filters only. The compound "HARMFUL|PLAYER" form returns nothing
+-- through the slot API on 12.x, so "only my debuffs" is applied afterwards by
+-- checking isFromPlayerOrPlayerPet on each aura.
 local BUFF_FILTER = "HELPFUL"
-
--- On enemies, only the debuffs you applied (your DoTs). On friendly targets
--- that filter would be empty in practice - you do not debuff your own side - so
--- the promoted top row shows every debuff, which is what you would dispel.
-local DEBUFF_FILTER_MINE = "HARMFUL|PLAYER"
-local DEBUFF_FILTER_ALL = "HARMFUL"
+local DEBUFF_FILTER = "HARMFUL"
 local MAX_ICONS = 32
 local ICON_GAP = 2
 
@@ -33,6 +31,9 @@ local STEALABLE_COLOR = { r = 0.30, g = 0.60, b = 1.00 }
 
 local PLACEHOLDER_BUFF_COLOR = { r = 0.00, g = 0.00, b = 0.00 }
 local PLACEHOLDER_TEXTURE = "Interface\\Icons\\INV_Misc_QuestionMark"
+
+-- Reused between the buff and debuff passes, which never run concurrently.
+local auraScratch = {}
 
 local function OnAuraEnter(self)
 	if not self.auraInstanceID then return end
@@ -86,6 +87,16 @@ local function PositionIcon(b, relativeTo, index, size, perRow, growUp, yOffset)
 	end
 end
 
+-- Distance from the top of the frame to the first row above it, leaving room
+-- for the classification line. The space is reserved whenever the feature is
+-- on, even for a target with no label, so the rows do not jump between targets.
+local function AboveOffset(frame)
+	if frame.infoText and SimpleFrameDB.showTargetInfo then
+		return SF.GAP + SF.INFO_HEIGHT + SF.GAP
+	end
+	return SF.GAP
+end
+
 -- Distance from the bottom of the frame to the first debuff row, leaving room
 -- for the cast bar so the rows do not shift when a cast starts.
 local function DebuffOffset(frame)
@@ -96,61 +107,70 @@ local function DebuffOffset(frame)
 end
 
 -- Fills `pool` from the unit's aura list and lays the icons out in rows.
--- `yOffset` is the distance from the frame edge to the first row.
-local function LayoutGroup(frame, pool, filter, isHarmful, growUp, yOffset)
+-- `mineOnly` keeps just the auras you cast; `yOffset` is the distance from the
+-- frame edge to the first row.
+local function LayoutGroup(frame, pool, filter, isHarmful, mineOnly, growUp, yOffset)
 	local db = SimpleFrameDB
 	local unit = frame.unit
 	local size, perRow = db.auraSize, db.aurasPerRow
+
+	-- Zero means no auras, or a context where enumeration is refused. Both end
+	-- up showing nothing, which is all this code can do about it.
+	local total = SF.CollectAuras(unit, filter, MAX_ICONS, auraScratch)
 	local shown = 0
 
-	for i = 1, MAX_ICONS do
-		-- Returns nil both at the end of the list and in restricted contexts
-		-- where enumeration is refused outright. Either way, stop here.
-		local aura = SF.GetAura(unit, i, filter)
-		if not aura then break end
+	for index = 1, total do
+		local aura = auraScratch[index]
 
-		shown = shown + 1
-		local b = pool[shown]
-		if not b then
-			b = CreateAuraIcon(frame)
-			pool[shown] = b
+		-- Fails open: an unreadable source shows the aura rather than hiding
+		-- it, so your DoTs cannot vanish in the contexts that matter most.
+		local keep = not mineOnly or SF.Plain(aura.isFromPlayerOrPlayerPet) ~= false
+
+		if keep then
+			shown = shown + 1
+
+			local b = pool[shown]
+			if not b then
+				b = CreateAuraIcon(frame)
+				pool[shown] = b
+			end
+
+			b.unit = unit
+			b.isHarmful = isHarmful
+			b.auraInstanceID = aura.auraInstanceID
+			b.icon:SetTexture(aura.icon)
+			b:SetSize(size, size)
+
+			-- Every field below is branched on, so each one needs to be
+			-- readable. Secret timings mean no swipe rather than an error.
+			local duration = SF.Plain(aura.duration)
+			local expires = SF.Plain(aura.expirationTime)
+			if duration and expires and duration > 0 and expires > 0 then
+				b.cd:SetCooldown(expires - duration, duration)
+			else
+				b.cd:Clear()
+			end
+
+			local stacks = SF.Plain(aura.applications)
+			b.count:SetText(stacks and stacks > 1 and stacks or "")
+
+			local color
+			if isHarmful then
+				local dispel = SF.Plain(aura.dispelName) -- used as a table key
+				color = (dispel and DISPEL_COLORS[dispel]) or DEBUFF_DEFAULT_COLOR
+			elseif SF.Plain(aura.isStealable) then
+				color = STEALABLE_COLOR
+			end
+
+			if color then
+				b.border:SetColorTexture(color.r, color.g, color.b, 1)
+			else
+				b.border:SetColorTexture(0, 0, 0, 1)
+			end
+
+			PositionIcon(b, frame, shown - 1, size, perRow, growUp, yOffset)
+			b:Show()
 		end
-
-		b.unit = unit
-		b.isHarmful = isHarmful
-		b.auraInstanceID = aura.auraInstanceID
-		b.icon:SetTexture(aura.icon)
-		b:SetSize(size, size)
-
-		-- Every field below is branched on, so each one needs to be readable.
-		-- Secret timings simply mean no swipe rather than an error.
-		local duration = SF.Plain(aura.duration)
-		local expires = SF.Plain(aura.expirationTime)
-		if duration and expires and duration > 0 and expires > 0 then
-			b.cd:SetCooldown(expires - duration, duration)
-		else
-			b.cd:Clear()
-		end
-
-		local stacks = SF.Plain(aura.applications)
-		b.count:SetText(stacks and stacks > 1 and stacks or "")
-
-		local color
-		if isHarmful then
-			local dispel = SF.Plain(aura.dispelName) -- used as a table key
-			color = (dispel and DISPEL_COLORS[dispel]) or DEBUFF_DEFAULT_COLOR
-		elseif SF.Plain(aura.isStealable) then
-			color = STEALABLE_COLOR
-		end
-
-		if color then
-			b.border:SetColorTexture(color.r, color.g, color.b, 1)
-		else
-			b.border:SetColorTexture(0, 0, 0, 1)
-		end
-
-		PositionIcon(b, frame, shown - 1, size, perRow, growUp, yOffset)
-		b:Show()
 	end
 
 	for i = shown + 1, #pool do
@@ -178,7 +198,7 @@ local function LayoutPlaceholders(frame)
 	for group = 1, 2 do
 		local growUp = (group == 1)
 		local color = growUp and PLACEHOLDER_BUFF_COLOR or DEBUFF_DEFAULT_COLOR
-		local yOffset = growUp and SF.GAP or DebuffOffset(frame)
+		local yOffset = growUp and AboveOffset(frame) or DebuffOffset(frame)
 
 		for i = 1, perRow do
 			shown = shown + 1
@@ -219,6 +239,14 @@ function SF:UpdateAuras(frame)
 
 	local db = SimpleFrameDB
 
+	-- Blizzard's own aura display is being used instead, so draw nothing here.
+	if db.blizzardTargetAuras then
+		HideGroup(auras.buffs)
+		HideGroup(auras.debuffs)
+		HideGroup(auras.placeholders)
+		return
+	end
+
 	-- While unlocked the placeholders stand in for the real icons, so the
 	-- footprint is the same whether or not anything is targeted.
 	if SF.unlocked and db.showAuras then
@@ -240,14 +268,19 @@ function SF:UpdateAuras(frame)
 	-- through to the hostile arrangement.
 	local friendly = SF.Plain(UnitIsFriend("player", frame.unit)) and true or false
 
-	local above, below = SF.GAP, DebuffOffset(frame)
-	local debuffFilter = friendly and DEBUFF_FILTER_ALL or DEBUFF_FILTER_MINE
+	local above, below = AboveOffset(frame), DebuffOffset(frame)
 
+	-- On enemies, only the debuffs you applied (your DoTs). On friendly targets
+	-- that would be empty in practice - you do not debuff your own side - so the
+	-- promoted top row shows every debuff, which is what you would dispel.
+	local mineOnly = not friendly
+
+	--          frame, pool,           filter,         isHarmful, mineOnly, growUp, yOffset
 	if friendly then
-		LayoutGroup(frame, auras.debuffs, debuffFilter, true, true, above)
-		LayoutGroup(frame, auras.buffs, BUFF_FILTER, false, false, below)
+		LayoutGroup(frame, auras.debuffs, DEBUFF_FILTER, true,  mineOnly, true,  above)
+		LayoutGroup(frame, auras.buffs,   BUFF_FILTER,   false, false,    false, below)
 	else
-		LayoutGroup(frame, auras.buffs, BUFF_FILTER, false, true, above)
-		LayoutGroup(frame, auras.debuffs, debuffFilter, true, false, below)
+		LayoutGroup(frame, auras.buffs,   BUFF_FILTER,   false, false,    true,  above)
+		LayoutGroup(frame, auras.debuffs, DEBUFF_FILTER, true,  mineOnly, false, below)
 	end
 end

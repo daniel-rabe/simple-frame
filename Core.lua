@@ -17,16 +17,27 @@ SF.inCombat = false
 SF.CAST_HEIGHT = 16
 SF.GAP = 4
 
+-- Height reserved above the target frame for the classification line. Auras.lua
+-- shifts the upper aura row by this so the two never overlap.
+SF.INFO_HEIGHT = 12
+
 SF.defaults = {
 	enablePlayer = true,
 	enableTarget = true,
+	enablePet = true,
 	showToT = true,
 	showCastBarPlayer = true,
 	showCastBarTarget = true,
 	showAuras = true,
-	showCombatIcon = true,
+	showTargetInfo = true,
+	showCombatBorder = true,
 	hideBlizzardPlayer = false,
 	hideBlizzardTarget = false,
+	-- Borrow Blizzard's untainted aura display for the target, since this addon
+	-- is refused access to secret aura data in combat.
+	blizzardTargetAuras = false,
+	blizzAuraX = -25,
+	blizzAuraY = 39,
 	classColor = true,
 	width = 200,
 	height = 24,
@@ -41,6 +52,7 @@ SF.defaults = {
 SF.defaultPos = {
 	player = { "CENTER", -280, -140 },
 	target = { "CENTER", 180, -140 },
+	pet = { "CENTER", -280, -215 }, -- below the player frame and its cast bar
 }
 
 function SF:Print(msg)
@@ -59,6 +71,20 @@ local function CopyDefaults(src, dst)
 		elseif dst[k] == nil then
 			dst[k] = v
 		end
+	end
+end
+
+-- Keys left behind by earlier versions. CopyDefaults only ever adds, so these
+-- would otherwise sit in the saved variables forever.
+local OBSOLETE = {
+	"showCastBar",    -- split into showCastBarPlayer / showCastBarTarget
+	"showCombatIcon", -- renamed to showCombatBorder
+	"auraDebug", "auraDebugCombat", "auraDebugOOC", "blizzDump", -- old diagnostics
+}
+
+local function PruneObsolete(db)
+	for _, key in ipairs(OBSOLETE) do
+		db[key] = nil
 	end
 end
 
@@ -100,7 +126,7 @@ function SF:CreateAllFrames()
 		showLevel = true,
 		castBar = true,
 		castBarKey = "showCastBarPlayer",
-		combatIcon = true,
+		combatBorder = true,
 	})
 
 	self:CreateUnitFrame("target", "target", {
@@ -109,6 +135,15 @@ function SF:CreateAllFrames()
 		castBar = true,
 		castBarKey = "showCastBarTarget",
 		auras = true,
+		infoText = true,
+	})
+
+	-- Pet: health and power, three quarters size, independently movable.
+	-- "pet" is a real unit token, so it gets events like the player frame.
+	self:CreateUnitFrame("pet", "pet", {
+		enableKey = "enablePet",
+		widthScale = 0.75,
+		heightScale = 0.7,
 	})
 
 	-- Target of target: health only, attached to the right of the target frame.
@@ -201,12 +236,14 @@ eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 eventFrame:RegisterEvent("UNIT_TARGET")
+eventFrame:RegisterEvent("UNIT_PET")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" then
 		if arg1 ~= addonName then return end
 		SimpleFrameDB = SimpleFrameDB or {}
 		CopyDefaults(SF.defaults, SimpleFrameDB)
+		PruneObsolete(SimpleFrameDB)
 		SF:SetupOptions()
 
 	elseif event == "PLAYER_LOGIN" then
@@ -241,6 +278,13 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 		if arg1 == "target" then
 			local tot = SF.frames.targettarget
 			if tot then tot:UpdateAll() end
+		end
+
+	elseif event == "UNIT_PET" then
+		-- Fires on the owner, not the pet, when the pet is summoned or swapped.
+		if arg1 == "player" then
+			local pet = SF.frames.pet
+			if pet then pet:UpdateAll() end
 		end
 	end
 end)

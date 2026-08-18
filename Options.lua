@@ -55,6 +55,8 @@ function SF:SetupOptions()
 			"Show the SimpleFrame player health and power bars.")
 		Checkbox("enableTarget", "Target frame",
 			"Show the SimpleFrame target health and power bars.")
+		Checkbox("enablePet", "Pet frame",
+			"Show a health and power bar for your pet.")
 		Checkbox("showToT", "Target of target",
 			"Show a small health bar for your target's target.")
 		Checkbox("showCastBarPlayer", "Player cast bar",
@@ -63,8 +65,10 @@ function SF:SetupOptions()
 			"Show a cast bar below the target frame.")
 		Checkbox("showAuras", "Target auras",
 			"Show buff icons above and your own debuff icons below the target frame.")
-		Checkbox("showCombatIcon", "Combat indicator",
-			"Show a small red marker above the player frame while you are in combat.")
+		Checkbox("showTargetInfo", "Target classification",
+			"Show a line above the target frame with its rank and creature type, such as \"Rare Elite Beast\".")
+		Checkbox("showCombatBorder", "Combat indicator",
+			"Outline the player frame in red while you are in combat.")
 		Checkbox("classColor", "Class colored health",
 			"Color player health bars by class instead of by reaction.")
 
@@ -89,6 +93,21 @@ function SF:SetupOptions()
 
 		Slider("auraSize", "Aura icon size", "Size of the target buff and debuff icons.", 12, 48, 1)
 		Slider("aurasPerRow", "Auras per row", "How many aura icons fit in one row.", 4, 16, 1)
+
+		--------------------------------------------------------------------
+		Header("Target auras from Blizzard")
+
+		Checkbox("blizzardTargetAuras", "Use Blizzard target auras",
+			"Strip Blizzard's target frame down to just its aura icons and park "
+			.. "it on the SimpleFrame target frame. Blizzard's code can read aura "
+			.. "data in combat that addons are refused, so this is the only way "
+			.. "to see enemy debuffs while fighting. Overrides \"Hide Blizzard "
+			.. "target frame\".")
+
+		Slider("blizzAuraX", "Blizzard aura offset X",
+			"Horizontal nudge for the borrowed aura icons.", -400, 400, 1)
+		Slider("blizzAuraY", "Blizzard aura offset Y",
+			"Vertical nudge for the borrowed aura icons.", -400, 400, 1)
 
 		--------------------------------------------------------------------
 		Header("Default Blizzard frames")

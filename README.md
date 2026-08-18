@@ -27,9 +27,12 @@ folder, so updating is a straight overwrite.
 ## Features
 
 - **Player frame** — health bar, power bar, name and level, health text, cast bar,
-  and a small red combat indicator above the top-right corner.
+  and a 1px red outline around the frame while you are in combat.
 - **Target frame** — the same, plus aura icons with cooldown swipe, stack counts
-  and dispel-colored borders.
+  and dispel-colored borders, and a classification line above the frame
+  (`Rare Elite Beast`, `Boss Dragonkin`, `Night Elf Druid`).
+- **Pet frame** — health and power bars at three-quarter size, independently
+  movable, shown only while you have a pet.
 - **Target of target** — a small health bar to the right of the target frame.
 - **Flat bars** — solid single-color fills, no gradient, no border art.
 - **Class-colored health** for players, reaction-colored for NPCs; grey when
@@ -67,12 +70,41 @@ Options → AddOns → SimpleFrame, or `/sf`.
 
 | Group | Settings |
 |---|---|
-| Frames | Player frame, target frame, target of target, player cast bar, target cast bar, target auras, combat indicator, class colored health |
+| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, combat indicator, class colored health |
 | Size | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both) |
 | Auras | Aura icon size, auras per row |
+| Target auras from Blizzard | Use Blizzard target auras, aura offset X, aura offset Y |
 | Default Blizzard frames | Hide Blizzard player frame, hide Blizzard target frame |
 
 Frame positions are set by dragging, not in the panel.
+
+## Target auras in combat
+
+On 12.x an addon is refused access to a unit's auras once they are secret —
+`"Auras cannot be accessed when secret while tainted by ..."` — which in
+practice is every target in combat. Blizzard's own code is not tainted, so its
+aura display keeps working.
+
+**Use Blizzard target auras** (Options → AddOns → SimpleFrame) works around
+this: `TargetFrame` stays alive but is stripped down to its `Auras` container
+alone — portrait, border art, name, level, health and mana bars all hidden — and
+parked on the SimpleFrame target frame. Two offset sliders nudge the icons into
+place, since Blizzard positions them relative to its own frame.
+
+This overrides *Hide Blizzard target frame*, which would otherwise take the
+aura display down with it. With it off, SimpleFrame draws its own aura icons,
+which work out of combat only.
+
+## Click-casting
+
+All three frames register with the standard `ClickCastFrames` registry, so
+**Clique** and any addon following the same convention can bind spells to them
+with no extra setup — they show up alongside the Blizzard frames in Clique's
+frame list.
+
+Bindings take priority over the addon's own click behavior. A button Clique has
+bound runs that binding; anything unbound still left-clicks to target and
+right-clicks for the unit menu.
 
 ## Notes
 
@@ -96,9 +128,15 @@ practical consequences:
   untouched.
 - Health **percentage** comes from `UnitHealthPercent`, which evaluates the
   ratio engine-side.
-- Aura enumeration is *refused* in restricted contexts (in combat, and in
-  Mythic+ even out of combat). The target aura icons disappear until the
-  restriction lifts. This is a client limitation, not a bug in the addon.
+- Auras come from `C_UnitAuras.GetUnitAuras`. The older enumeration APIs
+  (`GetAuraDataByIndex` and `GetAuraSlots`) both *raise* once a unit's auras are
+  secret — `"Auras cannot be accessed when secret while tainted by ..."` — which
+  in practice is every target in combat, so neither can be used. The slot walk
+  remains only as a fallback for clients that predate `GetUnitAuras`.
+- Compound filters like `HARMFUL|PLAYER` return nothing through that API, so
+  "only my debuffs" is applied afterwards from each aura's
+  `isFromPlayerOrPlayerPet`. That check fails open: an unreadable source shows
+  the aura rather than hiding it.
 - Cooldown swipes and stack counts are dropped for any aura whose timings come
   back secret; the icon still shows.
 
@@ -113,11 +151,10 @@ path to not reintroducing these errors.
 | `Core.lua` | Saved variables, defaults, lifecycle events, drag mode, slash commands |
 | `UnitFrame.lua` | Secure unit button factory: bars, texts, cast bar, layout |
 | `Auras.lua` | Target buff/debuff icon grid and drag placeholders |
-| `Blizzard.lua` | Opt-in hiding of the default frames |
+| `Blizzard.lua` | Hiding the default frames, and borrowing their aura display |
 | `Options.lua` | Settings panel registration |
 | `Icon.tga` | Addon list icon, referenced by `## IconTexture` |
 
 ## License
 
-Not yet specified. Add one before publishing if you want others to reuse or
-redistribute this.
+[MIT](LICENSE) — Copyright (c) 2026 Daniel Rabe.
