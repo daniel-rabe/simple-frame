@@ -100,10 +100,12 @@ end
 -- Distance from the bottom of the frame to the first debuff row, leaving room
 -- for the cast bar so the rows do not shift when a cast starts.
 local function DebuffOffset(frame)
+	-- Clear the target-of-target bar stacked underneath, then the cast bar.
+	local offset = SF.GAP + frame:AttachedHeight()
 	if frame.castBar and frame:CastBarEnabled() then
-		return SF.GAP + SF.CAST_HEIGHT + SF.GAP
+		offset = offset + SF.CAST_HEIGHT + SF.GAP
 	end
-	return SF.GAP
+	return offset
 end
 
 -- Fills `pool` from the unit's aura list and lays the icons out in rows.

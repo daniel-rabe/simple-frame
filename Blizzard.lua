@@ -47,10 +47,12 @@ end
 --       TargetFrameContentMain      Name, LevelText, ManaBar, HealthBarsContainer
 --       TargetFrameContentContextual  ... and Auras
 --     TargetFrameToT, TargetFrameSpellBar
+-- Alpha as well as Hide: if Blizzard re-shows one of these during combat, when
+-- we are not allowed to touch it, a zero alpha keeps it invisible anyway.
 local function Strip(element)
-	if element and element.Hide then
-		pcall(element.Hide, element)
-	end
+	if not element then return end
+	if element.SetAlpha then pcall(element.SetAlpha, element, 0) end
+	if element.Hide then pcall(element.Hide, element) end
 end
 
 -- Blizzard re-shows these whenever the target changes, so this is re-run from
@@ -58,6 +60,14 @@ end
 function SF:StripBlizzardTarget()
 	local f = _G.TargetFrame
 	if not f or not SimpleFrameDB.blizzardTargetAuras then return end
+
+	-- These are children of a protected frame, so hiding them in combat is a
+	-- blocked action - and pcall does not suppress that, since it is a taint
+	-- event rather than a Lua error. Defer, and let PLAYER_REGEN_ENABLED replay.
+	if InCombatLockdown() then
+		self.blizzPending = true
+		return
+	end
 
 	-- Portrait and border art.
 	Strip(f.TargetFrameContainer)
@@ -78,8 +88,10 @@ function SF:StripBlizzardTarget()
 		end
 	end
 
-	-- Elements SimpleFrame already draws itself.
-	Strip(f.spellbar)
+	-- Elements SimpleFrame already draws itself. The cast bar is deliberately
+	-- left alone: it animates its own alpha while fading, so it overwrites any
+	-- hiding we do and reappears in combat. SimpleFrame drops its own target
+	-- cast bar instead - see UnitFrameMixin:CastBarEnabled.
 	Strip(f.totFrame)
 	Strip(f.powerBarAlt)
 	Strip(f.threatIndicator)
@@ -153,7 +165,8 @@ watcher:RegisterEvent("EDIT_MODE_LAYOUTS_UPDATED")
 watcher:RegisterEvent("PLAYER_TARGET_CHANGED")
 watcher:SetScript("OnEvent", function(_, event)
 	if event == "PLAYER_TARGET_CHANGED" then
-		-- Cheap, and does not touch position, so it is safe in combat.
+		-- Blizzard re-shows the stripped elements on every target change.
+		-- StripBlizzardTarget defers itself while in combat.
 		SF:StripBlizzardTarget()
 	else
 		SF:UpdateBlizzardFrames()

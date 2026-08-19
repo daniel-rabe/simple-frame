@@ -30,6 +30,7 @@ SF.defaults = {
 	showCastBarTarget = true,
 	showAuras = true,
 	showTargetInfo = true,
+	showHealPrediction = true,
 	showCombatBorder = true,
 	hideBlizzardPlayer = false,
 	hideBlizzardTarget = false,
@@ -146,14 +147,14 @@ function SF:CreateAllFrames()
 		heightScale = 0.7,
 	})
 
-	-- Target of target: health only, attached to the right of the target frame.
-	-- UNIT_* events do not fire for the "targettarget" token, so this one polls.
+	-- Target of target: health only, stacked directly under the target frame at
+	-- the same width. UNIT_* events do not fire for the "targettarget" token,
+	-- so this one polls.
 	self:CreateUnitFrame("targettarget", "targettarget", {
 		enableKey = "showToT",
 		noPower = true,
 		attached = true,
 		attachTo = "target",
-		widthScale = 0.5,
 		heightScale = 0.7,
 		poll = 0.2,
 	})

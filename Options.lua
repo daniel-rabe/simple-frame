@@ -69,6 +69,8 @@ function SF:SetupOptions()
 			"Show a line above the target frame with its rank and creature type, such as \"Rare Elite Beast\".")
 		Checkbox("showCombatBorder", "Combat indicator",
 			"Outline the player frame in red while you are in combat.")
+		Checkbox("showHealPrediction", "Incoming heals and absorbs",
+			"Overlay the health bars with incoming heals and damage absorb shields.")
 		Checkbox("classColor", "Class colored health",
 			"Color player health bars by class instead of by reaction.")
 
@@ -102,7 +104,8 @@ function SF:SetupOptions()
 			.. "it on the SimpleFrame target frame. Blizzard's code can read aura "
 			.. "data in combat that addons are refused, so this is the only way "
 			.. "to see enemy debuffs while fighting. Overrides \"Hide Blizzard "
-			.. "target frame\".")
+			.. "target frame\", and replaces the SimpleFrame target cast bar "
+			.. "with Blizzard's.")
 
 		Slider("blizzAuraX", "Blizzard aura offset X",
 			"Horizontal nudge for the borrowed aura icons.", -400, 400, 1)

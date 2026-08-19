@@ -52,15 +52,24 @@ function UnitFrameMixin:BuildElements()
 	health:SetPoint("TOPRIGHT")
 	self.health = health
 
-	self.healthText = health:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	-- Text lives on its own layer above the heal-prediction overlays, which are
+	-- drawn in the health bar's empty region and would otherwise cover it.
+	local textLayer = CreateFrame("Frame", nil, self)
+	textLayer:SetAllPoints(health)
+	textLayer:SetFrameLevel(health:GetFrameLevel() + 3)
+	self.textLayer = textLayer
+
+	self.healthText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	self.healthText:SetPoint("RIGHT", health, "RIGHT", -4, 0)
 	self.healthText:SetJustifyH("RIGHT")
 
-	self.nameText = health:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	self.nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 	self.nameText:SetPoint("LEFT", health, "LEFT", 4, 0)
 	self.nameText:SetPoint("RIGHT", self.healthText, "LEFT", -4, 0)
 	self.nameText:SetJustifyH("LEFT")
 	self.nameText:SetWordWrap(false)
+
+	self:BuildHealthPrediction()
 
 	if not self.opts.noPower then
 		local power = CreateBar(self)
@@ -238,6 +247,82 @@ function UnitFrameMixin:UpdateInfoText()
 	fs:SetText(table.concat(parts, " "))
 end
 
+-- Incoming heals and damage absorbs, drawn in the empty part of the health bar.
+--
+-- Nothing here is computed in Lua. Secret numbers may be handed to a widget
+-- setter but never added, compared or formatted, so the overlays are anchored
+-- to the health fill's own texture - whose right edge already sits exactly
+-- where the fill ends - and scaled against missing health, which the engine's
+-- prediction calculator reports directly.
+function UnitFrameMixin:BuildHealthPrediction()
+	if not CreateUnitHealPredictionCalculator then return end
+
+	local health = self.health
+	local fill = health:GetStatusBarTexture()
+	local base = health:GetFrameLevel()
+
+	local function Overlay(level, r, g, b)
+		local bar = CreateFrame("StatusBar", nil, self)
+		SetSolidFill(bar)
+		bar:SetFrameLevel(level)
+		bar:SetStatusBarColor(r, g, b)
+		bar:SetMinMaxValues(0, 1)
+		bar:SetValue(0)
+		-- Starts at the fill edge and runs to the end of the bar, so its width
+		-- is the missing-health region.
+		bar:SetPoint("TOPLEFT", fill, "TOPRIGHT", 0, 0)
+		bar:SetPoint("BOTTOMRIGHT", health, "BOTTOMRIGHT", 0, 0)
+		bar:Hide()
+		return bar
+	end
+
+	-- Both start at the fill edge; incoming heals draw over the shield, so a
+	-- larger shield shows as blue continuing past the green.
+	self.absorbBar = Overlay(base + 1, 0.60, 0.78, 1.00)
+	self.incomingBar = Overlay(base + 2, 0.30, 0.85, 0.45)
+
+	local calc = CreateUnitHealPredictionCalculator()
+	calc:SetDamageAbsorbClampMode(Enum.UnitDamageAbsorbClampMode.MaximumHealth)
+	calc:SetHealAbsorbClampMode(Enum.UnitHealAbsorbClampMode.MaximumHealth)
+	calc:SetHealAbsorbMode(Enum.UnitHealAbsorbMode.Total)
+	calc:SetIncomingHealClampMode(Enum.UnitIncomingHealClampMode.MissingHealth)
+	calc:SetIncomingHealOverflowPercent(1)
+	self.healCalculator = calc
+end
+
+function UnitFrameMixin:UpdateHealthPrediction()
+	local calc = self.healCalculator
+	if not calc then return end
+
+	local incoming, absorb = self.incomingBar, self.absorbBar
+
+	if not SimpleFrameDB.showHealPrediction or not UnitExists(self.unit) then
+		incoming:Hide()
+		absorb:Hide()
+		return
+	end
+
+	UnitGetDetailedHealPrediction(self.unit, nil, calc)
+
+	local missing = calc:GetMissingHealth()
+	local heals = calc:GetTotalIncomingHeals()
+	local shield = calc:GetDamageAbsorbs()
+
+	-- Scaled against missing health because the bars occupy exactly that space.
+	-- A zero amount handed to SetAlpha resolves to 0 and hides the bar, while
+	-- any positive amount clamps to 1: that is how an unreadable value is
+	-- tested for "is there any" without comparing it.
+	absorb:SetMinMaxValues(0, missing)
+	absorb:SetValue(shield)
+	absorb:SetAlpha(shield)
+	absorb:Show()
+
+	incoming:SetMinMaxValues(0, missing)
+	incoming:SetValue(heals)
+	incoming:SetAlpha(heals)
+	incoming:Show()
+end
+
 function UnitFrameMixin:UpdateHealthColor()
 	local unit = self.unit
 	local r, g, b
@@ -299,6 +384,7 @@ function UnitFrameMixin:UpdateHealth()
 
 	self:UpdateHealthText()
 	self:UpdateHealthColor()
+	self:UpdateHealthPrediction()
 end
 
 function UnitFrameMixin:UpdatePowerColor()
@@ -371,7 +457,17 @@ end
 -- setting key, so the player and target bars toggle independently.
 function UnitFrameMixin:CastBarEnabled()
 	local key = self.opts.castBarKey
-	return (key and SimpleFrameDB[key]) and true or false
+	if not key or not SimpleFrameDB[key] then return false end
+
+	-- Borrowing Blizzard's target frame brings its cast bar along, and that one
+	-- animates its own alpha while fading, so it overwrites any attempt to hide
+	-- it and cannot be suppressed in combat. Rather than stack two cast bars,
+	-- ours stands down and Blizzard's serves as the target cast bar.
+	if self.unit == "target" and SimpleFrameDB.blizzardTargetAuras then
+		return false
+	end
+
+	return true
 end
 
 function UnitFrameMixin:UpdateCast()
@@ -458,7 +554,7 @@ function UnitFrameMixin:RestorePosition()
 	if self.opts.attached then
 		local parent = SF.frames[self.opts.attachTo]
 		if parent then
-			anchor:SetPoint("LEFT", parent.anchor, "RIGHT", 6, 0)
+			anchor:SetPoint("TOPLEFT", parent.anchor, "BOTTOMLEFT", 0, -SF.GAP)
 		else
 			anchor:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 		end
@@ -472,6 +568,22 @@ function UnitFrameMixin:RestorePosition()
 		local d = SF.defaultPos[self.key] or { "CENTER", 0, 0 }
 		anchor:SetPoint(d[1], UIParent, d[1], d[2], d[3])
 	end
+end
+
+-- Vertical space consumed directly under this frame by an attached child (the
+-- target-of-target bar), including the gap above it. Everything else that sits
+-- below the frame - cast bar, debuff rows - starts past this.
+function UnitFrameMixin:AttachedHeight()
+	local db = SimpleFrameDB
+	for _, other in pairs(SF.frames) do
+		if other.opts.attached and other.opts.attachTo == self.key then
+			local enableKey = other.opts.enableKey
+			if not enableKey or db[enableKey] then
+				return db.height * (other.opts.heightScale or 1) + SF.GAP
+			end
+		end
+	end
+	return 0
 end
 
 function UnitFrameMixin:ApplyLayout()
@@ -497,7 +609,7 @@ function UnitFrameMixin:ApplyLayout()
 	if self.castBar then
 		self.castBar:SetSize(width, SF.CAST_HEIGHT)
 		self.castBar:ClearAllPoints()
-		self.castBar:SetPoint("TOP", self, "BOTTOM", 0, -SF.GAP)
+		self.castBar:SetPoint("TOP", self, "BOTTOM", 0, -(SF.GAP + self:AttachedHeight()))
 		self.castBar.icon:SetSize(SF.CAST_HEIGHT, SF.CAST_HEIGHT)
 	end
 
@@ -546,6 +658,9 @@ local HANDLERS = {
 	UNIT_FACTION = "UpdateAll",
 	UNIT_CONNECTION = "UpdateAll",
 	UNIT_CLASSIFICATION_CHANGED = "UpdateInfoText",
+	UNIT_HEAL_PREDICTION = "UpdateHealthPrediction",
+	UNIT_ABSORB_AMOUNT_CHANGED = "UpdateHealthPrediction",
+	UNIT_HEAL_ABSORB_AMOUNT_CHANGED = "UpdateHealthPrediction",
 }
 
 local CAST_EVENTS = {

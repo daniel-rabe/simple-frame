@@ -33,7 +33,10 @@ folder, so updating is a straight overwrite.
   (`Rare Elite Beast`, `Boss Dragonkin`, `Night Elf Druid`).
 - **Pet frame** — health and power bars at three-quarter size, independently
   movable, shown only while you have a pet.
-- **Target of target** — a small health bar to the right of the target frame.
+- **Target of target** — a health bar stacked directly under the target frame at
+  the same width, at 70% height.
+- **Incoming heals and absorbs** overlaid on the health bars: the fill reads as
+  current health, then incoming heals, then shield.
 - **Flat bars** — solid single-color fills, no gradient, no border art.
 - **Class-colored health** for players, reaction-colored for NPCs; grey when
   dead or disconnected.
@@ -70,7 +73,7 @@ Options → AddOns → SimpleFrame, or `/sf`.
 
 | Group | Settings |
 |---|---|
-| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, combat indicator, class colored health |
+| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, combat indicator, incoming heals and absorbs, class colored health |
 | Size | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both) |
 | Auras | Aura icon size, auras per row |
 | Target auras from Blizzard | Use Blizzard target auras, aura offset X, aura offset Y |
@@ -90,6 +93,11 @@ this: `TargetFrame` stays alive but is stripped down to its `Auras` container
 alone — portrait, border art, name, level, health and mana bars all hidden — and
 parked on the SimpleFrame target frame. Two offset sliders nudge the icons into
 place, since Blizzard positions them relative to its own frame.
+
+Blizzard's target cast bar comes along with the borrowed frame. It animates its
+own alpha while fading, so it overwrites any attempt to hide it and reappears in
+combat — so in this mode SimpleFrame drops its own target cast bar and lets
+Blizzard's serve instead.
 
 This overrides *Hide Blizzard target frame*, which would otherwise take the
 aura display down with it. With it off, SimpleFrame draws its own aura icons,
@@ -139,6 +147,14 @@ practical consequences:
   the aura rather than hiding it.
 - Cooldown swipes and stack counts are dropped for any aura whose timings come
   back secret; the icon still shows.
+- Incoming heals and absorbs come from `CreateUnitHealPredictionCalculator`,
+  which does the arithmetic engine-side. **Addition on a secret raises just as
+  comparison does** — a secret may only be passed to a widget setter, never
+  operated on. So the overlays are anchored to the health bar'"'"'s own fill texture,
+  whose right edge already marks where the fill ends, and scaled against
+  `GetMissingHealth()`. They are shown or hidden with `SetAlpha(amount)`, which
+  resolves to 0 for a zero amount and clamps to 1 for any positive one — the only
+  way to ask "is there any" without comparing.
 
 If you are extending this addon, read `Secrets.lua` first — it is the shortest
 path to not reintroducing these errors.
