@@ -1,0 +1,10 @@
+lightweight tag 0e128fae7185ce0b9250008feeca60761dd2954a v1.1-beta
+Author:	Daniel Rabe <git@duneking.de>
+Date:	Wed Aug 19 23:54:28 2026 +0200
+
+commit 0e128fae7185ce0b9250008feeca60761dd2954a
+Author: Daniel Rabe <git@duneking.de>
+Date:   Wed Aug 19 23:54:28 2026 +0200
+
+    refactor: change position of target of target frame
+

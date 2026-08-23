@@ -67,6 +67,8 @@ function SF:SetupOptions()
 			"Show buff icons above and your own debuff icons below the target frame.")
 		Checkbox("showTargetInfo", "Target classification",
 			"Show a line above the target frame with its rank and creature type, such as \"Rare Elite Beast\".")
+		Checkbox("showQuestIcon", "Quest indicator",
+			"Show a yellow exclamation mark above the target frame for enemies that count toward a quest.")
 		Checkbox("showCombatBorder", "Combat indicator",
 			"Outline the player frame in red while you are in combat.")
 		Checkbox("showHealPrediction", "Incoming heals and absorbs",

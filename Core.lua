@@ -30,6 +30,7 @@ SF.defaults = {
 	showCastBarTarget = true,
 	showAuras = true,
 	showTargetInfo = true,
+	showQuestIcon = true,
 	showHealPrediction = true,
 	showCombatBorder = true,
 	hideBlizzardPlayer = false,
@@ -137,6 +138,7 @@ function SF:CreateAllFrames()
 		castBarKey = "showCastBarTarget",
 		auras = true,
 		infoText = true,
+		questIcon = true,
 	})
 
 	-- Pet: health and power, three quarters size, independently movable.
@@ -238,6 +240,7 @@ eventFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
 eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 eventFrame:RegisterEvent("UNIT_TARGET")
 eventFrame:RegisterEvent("UNIT_PET")
+eventFrame:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" then
@@ -280,6 +283,12 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 			local tot = SF.frames.targettarget
 			if tot then tot:UpdateAll() end
 		end
+
+	elseif event == "UNIT_QUEST_LOG_CHANGED" then
+		-- Fires on the player when quest progress changes, so the marker clears
+		-- once the target stops counting toward anything.
+		local target = SF.frames.target
+		if target then target:UpdateQuestIcon() end
 
 	elseif event == "UNIT_PET" then
 		-- Fires on the owner, not the pet, when the pet is summoned or swapped.

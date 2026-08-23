@@ -91,7 +91,10 @@ end
 -- for the classification line. The space is reserved whenever the feature is
 -- on, even for a target with no label, so the rows do not jump between targets.
 local function AboveOffset(frame)
-	if frame.infoText and SimpleFrameDB.showTargetInfo then
+	local db = SimpleFrameDB
+	local info = frame.infoText and db.showTargetInfo
+	local quest = frame.questIcon and db.showQuestIcon
+	if info or quest then
 		return SF.GAP + SF.INFO_HEIGHT + SF.GAP
 	end
 	return SF.GAP

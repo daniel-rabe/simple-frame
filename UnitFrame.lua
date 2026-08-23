@@ -91,6 +91,18 @@ function UnitFrameMixin:BuildElements()
 		self.infoText = info
 	end
 
+	if self.opts.questIcon then
+		-- Shares the band above the frame with the classification line, which
+		-- is left-justified, so the right end is free.
+		local quest = self:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+		quest:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", -2, SF.GAP)
+		quest:SetJustifyH("RIGHT")
+		quest:SetTextColor(1, 0.85, 0.1)
+		quest:SetText("!")
+		quest:Hide()
+		self.questIcon = quest
+	end
+
 	if self.opts.combatBorder then
 		self:BuildCombatBorder()
 	end
@@ -323,6 +335,21 @@ function UnitFrameMixin:UpdateHealthPrediction()
 	incoming:Show()
 end
 
+-- The exclamation mark Blizzard shows for units that count toward a quest.
+-- UnitIsQuestBoss is the same call its own target frame uses.
+function UnitFrameMixin:UpdateQuestIcon()
+	local icon = self.questIcon
+	if not icon then return end
+
+	if not SimpleFrameDB.showQuestIcon or not UnitExists(self.unit) then
+		icon:Hide()
+		return
+	end
+
+	-- A secret reads as nil here and simply shows nothing, rather than raising.
+	icon:SetShown(SF.Plain(UnitIsQuestBoss(self.unit)) == true)
+end
+
 function UnitFrameMixin:UpdateHealthColor()
 	local unit = self.unit
 	local r, g, b
@@ -529,6 +556,7 @@ function UnitFrameMixin:UpdateAll()
 		if self.castBar then StopCast(self.castBar) end
 		if self.opts.auras then SF:UpdateAuras(self) end
 		self:UpdateInfoText()
+		self:UpdateQuestIcon()
 		return
 	end
 
@@ -537,6 +565,7 @@ function UnitFrameMixin:UpdateAll()
 	self:UpdateDisplayPower()
 	self:UpdateCast()
 	self:UpdateInfoText()
+	self:UpdateQuestIcon()
 
 	if self.opts.auras then
 		SF:UpdateAuras(self)

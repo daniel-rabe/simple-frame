@@ -30,7 +30,8 @@ folder, so updating is a straight overwrite.
   and a 1px red outline around the frame while you are in combat.
 - **Target frame** — the same, plus aura icons with cooldown swipe, stack counts
   and dispel-colored borders, and a classification line above the frame
-  (`Rare Elite Beast`, `Boss Dragonkin`, `Night Elf Druid`).
+  (`Rare Elite Beast`, `Boss Dragonkin`, `Night Elf Druid`), and a yellow `!`
+  for enemies that count toward a quest.
 - **Pet frame** — health and power bars at three-quarter size, independently
   movable, shown only while you have a pet.
 - **Target of target** — a health bar stacked directly under the target frame at
@@ -73,7 +74,7 @@ Options → AddOns → SimpleFrame, or `/sf`.
 
 | Group | Settings |
 |---|---|
-| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, combat indicator, incoming heals and absorbs, class colored health |
+| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, quest indicator, combat indicator, incoming heals and absorbs, class colored health |
 | Size | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both) |
 | Auras | Aura icon size, auras per row |
 | Target auras from Blizzard | Use Blizzard target auras, aura offset X, aura offset Y |
@@ -150,7 +151,7 @@ practical consequences:
 - Incoming heals and absorbs come from `CreateUnitHealPredictionCalculator`,
   which does the arithmetic engine-side. **Addition on a secret raises just as
   comparison does** — a secret may only be passed to a widget setter, never
-  operated on. So the overlays are anchored to the health bar'"'"'s own fill texture,
+  operated on. So the overlays are anchored to the health bar's own fill texture,
   whose right edge already marks where the fill ends, and scaled against
   `GetMissingHealth()`. They are shown or hidden with `SetAlpha(amount)`, which
   resolves to 0 for a zero amount and clamps to 1 for any positive one — the only
