@@ -69,6 +69,13 @@ function SF:StripBlizzardTarget()
 		return
 	end
 
+	-- The frame is invisible now but still mouse-enabled, and it is both larger
+	-- than the SimpleFrame target frame and stacked above it - so it swallows
+	-- clicks meant for our frames, including the top of the target-of-target bar
+	-- underneath. The aura buttons are separate children and keep their own
+	-- mouse handling, so tooltips still work.
+	pcall(f.EnableMouse, f, false)
+
 	-- Portrait and border art.
 	Strip(f.TargetFrameContainer)
 
