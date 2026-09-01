@@ -31,6 +31,7 @@ SF.defaults = {
 	showAuras = true,
 	showTargetInfo = true,
 	showQuestIcon = true,
+	showGroupIcon = true,
 	showHealPrediction = true,
 	showCombatBorder = true,
 	hideBlizzardPlayer = false,
@@ -129,6 +130,7 @@ function SF:CreateAllFrames()
 		castBar = true,
 		castBarKey = "showCastBarPlayer",
 		combatBorder = true,
+		groupIcon = true,
 	})
 
 	self:CreateUnitFrame("target", "target", {
@@ -139,6 +141,7 @@ function SF:CreateAllFrames()
 		auras = true,
 		infoText = true,
 		questIcon = true,
+		groupIcon = true,
 	})
 
 	-- Pet: health and power, three quarters size, independently movable.
@@ -241,6 +244,8 @@ eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 eventFrame:RegisterEvent("UNIT_TARGET")
 eventFrame:RegisterEvent("UNIT_PET")
 eventFrame:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
+eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
+eventFrame:RegisterEvent("PARTY_LEADER_CHANGED")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" then
@@ -282,6 +287,13 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 		if arg1 == "target" then
 			local tot = SF.frames.targettarget
 			if tot then tot:UpdateAll() end
+		end
+
+	elseif event == "GROUP_ROSTER_UPDATE" or event == "PARTY_LEADER_CHANGED" then
+		-- Neither carries a unit, so refresh both frames that can show a marker.
+		for _, key in ipairs({ "player", "target" }) do
+			local f = SF.frames[key]
+			if f then f:UpdateGroupIcon() end
 		end
 
 	elseif event == "UNIT_QUEST_LOG_CHANGED" then

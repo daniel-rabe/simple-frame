@@ -32,6 +32,8 @@ folder, so updating is a straight overwrite.
   and dispel-colored borders, and a classification line above the frame
   (`Rare Elite Beast`, `Boss Dragonkin`, `Night Elf Druid`), and a yellow `!`
   for enemies that count toward a quest.
+- **Leader and assist markers** — Blizzard’s own leader and assistant icons,
+  on the player and target frames.
 - **Pet frame** — health and power bars at three-quarter size, independently
   movable, shown only while you have a pet.
 - **Target of target** — a health bar stacked directly under the target frame at
@@ -74,7 +76,7 @@ Options → AddOns → SimpleFrame, or `/sf`.
 
 | Group | Settings |
 |---|---|
-| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, quest indicator, combat indicator, incoming heals and absorbs, class colored health |
+| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, quest indicator, leader and assist, combat indicator, incoming heals and absorbs, class colored health |
 | Size | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both) |
 | Auras | Aura icon size, auras per row |
 | Target auras from Blizzard | Use Blizzard target auras, aura offset X, aura offset Y |

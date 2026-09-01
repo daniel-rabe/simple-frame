@@ -6,6 +6,8 @@ local addonName, SF = ...
 
 local floor, max = math.floor, math.max
 
+local MARKER_SIZE = 14
+
 local UnitFrameMixin = {}
 SF.UnitFrameMixin = UnitFrameMixin
 
@@ -40,6 +42,115 @@ local function SafeMax(max)
 		return 1
 	end
 	return max
+end
+
+--------------------------------------------------------------------------------
+-- Native icons
+--------------------------------------------------------------------------------
+-- Blizzard's own target frame carries these assets, so the first choice is to
+-- read the atlas or file path straight off the live element - correct by
+-- construction, whatever the client currently ships. Failing that, candidate
+-- atlas names can be validated with C_Texture.GetAtlasInfo, which returns nil
+-- for one that does not exist, and file paths with GetFileIDFromPath. Only a
+-- verified asset is used; otherwise the caller falls back to a letter, which
+-- cannot silently fail to render.
+
+local function LiveAsset(path)
+	local ok, element = pcall(function()
+		local ctx = TargetFrame and TargetFrame.TargetFrameContent
+			and TargetFrame.TargetFrameContent.TargetFrameContentContextual
+		return ctx and ctx[path]
+	end)
+	if not ok or not element then return nil end
+
+	local atlas = element.GetAtlas and element:GetAtlas()
+	if atlas then return { atlas = atlas } end
+
+	local file = element.GetTexture and element:GetTexture()
+	if file then return { texture = file } end
+end
+
+local function ValidAtlas(names)
+	if not (C_Texture and C_Texture.GetAtlasInfo) then return nil end
+	for _, name in ipairs(names) do
+		if C_Texture.GetAtlasInfo(name) then return { atlas = name } end
+	end
+end
+
+local function ValidPath(paths)
+	if not GetFileIDFromPath then return nil end
+	for _, file in ipairs(paths) do
+		if GetFileIDFromPath(file) then return { texture = file } end
+	end
+end
+
+local ICON_SPECS = {
+	quest = {
+		live = "QuestIcon",
+		atlases = { "QuestNormal", "questlog-questtypeicon-quest" },
+		paths = { "Interface\\TargetingFrame\\PortraitQuestBadge" },
+	},
+	leader = {
+		live = "LeaderIcon",
+		atlases = { "UI-HUD-UnitFrame-Player-Group-LeaderIcon", "UI-LFG-RoleIcon-Leader" },
+		paths = { "Interface\\GroupFrame\\UI-Group-LeaderIcon" },
+	},
+	assist = {
+		-- No live source: Blizzard reuses LeaderIcon and swaps its texture by
+		-- state, so reading it would give whichever role is current.
+		atlases = { "UI-HUD-UnitFrame-Player-Group-AssistIcon", "UI-LFG-RoleIcon-Assist" },
+		paths = { "Interface\\GroupFrame\\UI-Group-AssistantIcon" },
+	},
+}
+
+-- Resolved on first use rather than at load: Blizzard's frames must exist, and
+-- false is cached for a miss so the lookup is not retried every update.
+local iconCache = {}
+
+local function NativeIcon(key)
+	local cached = iconCache[key]
+	if cached ~= nil then return cached or nil end
+
+	local spec = ICON_SPECS[key]
+	local asset = (spec.live and LiveAsset(spec.live))
+		or ValidAtlas(spec.atlases)
+		or ValidPath(spec.paths)
+		or false
+
+	iconCache[key] = asset
+	return asset or nil
+end
+
+-- A marker that prefers the native icon and falls back to a letter.
+local function CreateMarker(parent, size)
+	local m = CreateFrame("Frame", nil, parent)
+	m:SetSize(size, size)
+
+	m.tex = m:CreateTexture(nil, "OVERLAY")
+	m.tex:SetAllPoints()
+	m.tex:Hide()
+
+	m.label = m:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+	m.label:SetPoint("CENTER")
+	m.label:Hide()
+
+	m:Hide()
+	return m
+end
+
+local function ShowMarker(m, key, letter, r, g, b)
+	local asset = NativeIcon(key)
+	if asset then
+		if asset.atlas then m.tex:SetAtlas(asset.atlas) else m.tex:SetTexture(asset.texture) end
+		m.tex:Show()
+		m.label:Hide()
+	else
+		m.label:SetText(letter)
+		m.label:SetTextColor(r, g, b)
+		m.label:Show()
+		m.tex:Hide()
+	end
+	m:Show()
 end
 
 --------------------------------------------------------------------------------
@@ -94,14 +205,18 @@ function UnitFrameMixin:BuildElements()
 	if self.opts.questIcon then
 		-- Shares the band above the frame with the classification line, which
 		-- is left-justified, so the right end is free.
-		local quest = self:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-		quest:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", -2, SF.GAP)
-		quest:SetJustifyH("RIGHT")
-		quest:SetTextColor(1, 0.85, 0.1)
-		quest:SetText("!")
-		quest:Hide()
-		self.questIcon = quest
+		self.questIcon = CreateMarker(self, MARKER_SIZE)
 	end
+
+	if self.opts.groupIcon then
+		self.groupIcon = CreateMarker(self, MARKER_SIZE)
+	end
+
+	-- Right-to-left order in the corner. Positions are assigned by
+	-- LayoutMarkers, since which of these is showing varies.
+	self.markers = {}
+	if self.groupIcon then self.markers[#self.markers + 1] = self.groupIcon end
+	if self.questIcon then self.markers[#self.markers + 1] = self.questIcon end
 
 	if self.opts.combatBorder then
 		self:BuildCombatBorder()
@@ -337,17 +452,69 @@ end
 
 -- The exclamation mark Blizzard shows for units that count toward a quest.
 -- UnitIsQuestBoss is the same call its own target frame uses.
+-- Packs the visible markers right-to-left from the frame's top-right corner.
+-- Anchoring them to each other at build time left a gap where a hidden marker
+-- would have been, pushing the visible one away from the corner.
+function UnitFrameMixin:LayoutMarkers()
+	local previous
+
+	for _, marker in ipairs(self.markers) do
+		if marker:IsShown() then
+			marker:ClearAllPoints()
+			if previous then
+				marker:SetPoint("BOTTOMRIGHT", previous, "BOTTOMLEFT", -4, 0)
+			else
+				marker:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 0, SF.GAP)
+			end
+			previous = marker
+		end
+	end
+end
+
 function UnitFrameMixin:UpdateQuestIcon()
 	local icon = self.questIcon
 	if not icon then return end
 
 	if not SimpleFrameDB.showQuestIcon or not UnitExists(self.unit) then
 		icon:Hide()
+		self:LayoutMarkers()
 		return
 	end
 
 	-- A secret reads as nil here and simply shows nothing, rather than raising.
-	icon:SetShown(SF.Plain(UnitIsQuestBoss(self.unit)) == true)
+	if SF.Plain(UnitIsQuestBoss(self.unit)) == true then
+		ShowMarker(icon, "quest", "!", 1, 0.85, 0.1)
+	else
+		icon:Hide()
+	end
+
+	self:LayoutMarkers()
+end
+
+-- Group leader and raid assistant, the equivalent of Blizzard's crown and star.
+-- Assistants only exist in raids, so in a party this only ever marks the leader.
+function UnitFrameMixin:UpdateGroupIcon()
+	local fs = self.groupIcon
+	if not fs then return end
+
+	if not SimpleFrameDB.showGroupIcon or not UnitExists(self.unit) or not IsInGroup() then
+		fs:Hide()
+		self:LayoutMarkers()
+		return
+	end
+
+	-- Compared against true explicitly: a secret reads as nil here and simply
+	-- marks nothing, rather than raising.
+	local unit = self.unit
+	if SF.Plain(UnitIsGroupLeader(unit)) == true then
+		ShowMarker(fs, "leader", "L", 1, 0.82, 0)
+	elseif SF.Plain(UnitIsGroupAssistant(unit)) == true then
+		ShowMarker(fs, "assist", "A", 0.65, 0.78, 1)
+	else
+		fs:Hide()
+	end
+
+	self:LayoutMarkers()
 end
 
 function UnitFrameMixin:UpdateHealthColor()
@@ -557,6 +724,7 @@ function UnitFrameMixin:UpdateAll()
 		if self.opts.auras then SF:UpdateAuras(self) end
 		self:UpdateInfoText()
 		self:UpdateQuestIcon()
+		self:UpdateGroupIcon()
 		return
 	end
 
@@ -566,6 +734,7 @@ function UnitFrameMixin:UpdateAll()
 	self:UpdateCast()
 	self:UpdateInfoText()
 	self:UpdateQuestIcon()
+	self:UpdateGroupIcon()
 
 	if self.opts.auras then
 		SF:UpdateAuras(self)

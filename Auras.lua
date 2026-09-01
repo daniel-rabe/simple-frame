@@ -94,7 +94,8 @@ local function AboveOffset(frame)
 	local db = SimpleFrameDB
 	local info = frame.infoText and db.showTargetInfo
 	local quest = frame.questIcon and db.showQuestIcon
-	if info or quest then
+	local group = frame.groupIcon and db.showGroupIcon
+	if info or quest or group then
 		return SF.GAP + SF.INFO_HEIGHT + SF.GAP
 	end
 	return SF.GAP

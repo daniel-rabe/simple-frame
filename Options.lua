@@ -69,6 +69,8 @@ function SF:SetupOptions()
 			"Show a line above the target frame with its rank and creature type, such as \"Rare Elite Beast\".")
 		Checkbox("showQuestIcon", "Quest indicator",
 			"Show a yellow exclamation mark above the target frame for enemies that count toward a quest.")
+		Checkbox("showGroupIcon", "Leader and assist",
+			"Mark the group leader with L and raid assistants with A, on the player and target frames.")
 		Checkbox("showCombatBorder", "Combat indicator",
 			"Outline the player frame in red while you are in combat.")
 		Checkbox("showHealPrediction", "Incoming heals and absorbs",
