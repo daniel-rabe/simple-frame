@@ -71,6 +71,8 @@ function SF:SetupOptions()
 			"Show a yellow exclamation mark above the target frame for enemies that count toward a quest.")
 		Checkbox("showGroupIcon", "Leader and assist",
 			"Mark the group leader with L and raid assistants with A, on the player and target frames.")
+		Checkbox("showGroupNumber", "Raid group number",
+			"Show your raid subgroup number in the middle of the player frame.")
 		Checkbox("showCombatBorder", "Combat indicator",
 			"Outline the player frame in red while you are in combat.")
 		Checkbox("showHealPrediction", "Incoming heals and absorbs",

@@ -32,6 +32,7 @@ SF.defaults = {
 	showTargetInfo = true,
 	showQuestIcon = true,
 	showGroupIcon = true,
+	showGroupNumber = true,
 	showHealPrediction = true,
 	showCombatBorder = true,
 	hideBlizzardPlayer = false,
@@ -131,6 +132,7 @@ function SF:CreateAllFrames()
 		castBarKey = "showCastBarPlayer",
 		combatBorder = true,
 		groupIcon = true,
+		groupNumber = true,
 	})
 
 	self:CreateUnitFrame("target", "target", {
@@ -293,7 +295,10 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 		-- Neither carries a unit, so refresh both frames that can show a marker.
 		for _, key in ipairs({ "player", "target" }) do
 			local f = SF.frames[key]
-			if f then f:UpdateGroupIcon() end
+			if f then
+				f:UpdateGroupIcon()
+				f:UpdateGroupNumber()
+			end
 		end
 
 	elseif event == "UNIT_QUEST_LOG_CHANGED" then

@@ -180,6 +180,13 @@ function UnitFrameMixin:BuildElements()
 	self.nameText:SetJustifyH("LEFT")
 	self.nameText:SetWordWrap(false)
 
+	if self.opts.groupNumber then
+		local num = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		num:SetPoint("CENTER", health, "CENTER", 0, 0)
+		num:SetTextColor(0.75, 0.82, 1)
+		self.groupNumber = num
+	end
+
 	self:BuildHealthPrediction()
 
 	if not self.opts.noPower then
@@ -452,6 +459,30 @@ end
 
 -- The exclamation mark Blizzard shows for units that count toward a quest.
 -- UnitIsQuestBoss is the same call its own target frame uses.
+-- Raid subgroup, shown in the middle of the health bar. Parties have no
+-- subgroups, so this only ever appears in a raid.
+function UnitFrameMixin:UpdateGroupNumber()
+	local fs = self.groupNumber
+	if not fs then return end
+
+	if not SimpleFrameDB.showGroupNumber or not IsInRaid() then
+		fs:SetText("")
+		return
+	end
+
+	-- Walking the roster rather than using UnitInRaid, whose index is zero-based
+	-- while GetRaidRosterInfo expects one-based - an easy off-by-one to inherit.
+	for i = 1, GetNumGroupMembers() do
+		if SF.Plain(UnitIsUnit("raid" .. i, self.unit)) == true then
+			local _, _, subgroup = GetRaidRosterInfo(i)
+			fs:SetText(SF.Plain(subgroup) or "")
+			return
+		end
+	end
+
+	fs:SetText("")
+end
+
 -- Packs the visible markers right-to-left from the frame's top-right corner.
 -- Anchoring them to each other at build time left a gap where a hidden marker
 -- would have been, pushing the visible one away from the corner.
@@ -725,6 +756,7 @@ function UnitFrameMixin:UpdateAll()
 		self:UpdateInfoText()
 		self:UpdateQuestIcon()
 		self:UpdateGroupIcon()
+		self:UpdateGroupNumber()
 		return
 	end
 
@@ -735,6 +767,7 @@ function UnitFrameMixin:UpdateAll()
 	self:UpdateInfoText()
 	self:UpdateQuestIcon()
 	self:UpdateGroupIcon()
+	self:UpdateGroupNumber()
 
 	if self.opts.auras then
 		SF:UpdateAuras(self)
