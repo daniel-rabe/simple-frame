@@ -39,6 +39,7 @@ SF.defaults = {
 	showGroupNumber = true,
 	showLoadoutName = true,
 	showCombatTime = true,
+	showTopBackdrop = true,
 	showHealPrediction = true,
 	showCombatBorder = true,
 	hideBlizzardPlayer = false,
@@ -163,6 +164,7 @@ function SF:CreateAllFrames()
 	self:CreateUnitFrame("player", "player", {
 		enableKey = "enablePlayer",
 		showLevel = true,
+		hideMaxLevel = true,
 		castBar = true,
 		castBarKey = "showCastBarPlayer",
 		combatBorder = true,

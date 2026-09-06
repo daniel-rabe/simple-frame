@@ -44,6 +44,7 @@ folder, so updating is a straight overwrite.
   the same width, at 70% height.
 - **Incoming heals and absorbs** overlaid on the health bars: the fill reads as
   current health, then incoming heals, then shield.
+- **Top backdrop** — optional dark backing behind the band above the frame.
 - **Flat bars** — solid single-color fills, no gradient, no border art.
 - **Class-colored health** for players, reaction-colored for NPCs; grey when
   dead or disconnected.
@@ -80,7 +81,7 @@ Options → AddOns → SimpleFrame, or `/sf`.
 
 | Group | Settings |
 |---|---|
-| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, quest indicator, leader and assist, raid group number, talent loadout, combat timer, combat indicator, incoming heals and absorbs, class colored health |
+| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, quest indicator, leader and assist, raid group number, talent loadout, combat timer, top backdrop, combat indicator, incoming heals and absorbs, class colored health |
 | Size | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both) |
 | Auras | Aura icon size, auras per row |
 | Target auras from Blizzard | Use Blizzard target auras, aura offset X, aura offset Y |

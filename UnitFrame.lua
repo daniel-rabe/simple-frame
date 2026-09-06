@@ -8,6 +8,10 @@ local floor, max = math.floor, math.max
 
 local MARKER_SIZE = 14
 
+-- Horizontal inset shared by the bar text and the band above the frame, so the
+-- loadout line starts on the same edge as the unit's level and name.
+local TEXT_INSET = 4
+
 local UnitFrameMixin = {}
 SF.UnitFrameMixin = UnitFrameMixin
 
@@ -171,12 +175,12 @@ function UnitFrameMixin:BuildElements()
 	self.textLayer = textLayer
 
 	self.healthText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	self.healthText:SetPoint("RIGHT", health, "RIGHT", -4, 0)
+	self.healthText:SetPoint("RIGHT", health, "RIGHT", -TEXT_INSET, 0)
 	self.healthText:SetJustifyH("RIGHT")
 
 	self.nameText = textLayer:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-	self.nameText:SetPoint("LEFT", health, "LEFT", 4, 0)
-	self.nameText:SetPoint("RIGHT", self.healthText, "LEFT", -4, 0)
+	self.nameText:SetPoint("LEFT", health, "LEFT", TEXT_INSET, 0)
+	self.nameText:SetPoint("RIGHT", self.healthText, "LEFT", -TEXT_INSET, 0)
 	self.nameText:SetJustifyH("LEFT")
 	self.nameText:SetWordWrap(false)
 
@@ -201,18 +205,31 @@ function UnitFrameMixin:BuildElements()
 
 	if self.opts.infoText then
 		local info = self:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		info:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, SF.GAP)
-		info:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 0, SF.GAP)
+		info:SetPoint("BOTTOMLEFT", self, "TOPLEFT", TEXT_INSET, SF.GAP)
+		info:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", -TEXT_INSET, SF.GAP)
 		info:SetJustifyH("LEFT")
 		info:SetWordWrap(false)
 		info:SetTextColor(0.9, 0.82, 0.55)
 		self.infoText = info
 	end
 
+	-- Backing for the band above the frame. Created for any frame that puts
+	-- something up there, and on the BACKGROUND layer so the text sits on top;
+	-- the markers are child frames and draw above it regardless.
+	if self.opts.loadoutText or self.opts.infoText
+		or self.opts.questIcon or self.opts.groupIcon then
+		local band = self:CreateTexture(nil, "BACKGROUND")
+		band:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, 0)
+		band:SetPoint("TOPRIGHT", self, "TOPRIGHT", 0, SF.GAP + MARKER_SIZE)
+		band:SetColorTexture(0, 0, 0, 0.6)
+		band:Hide()
+		self.topBackdrop = band
+	end
+
 	if self.opts.loadoutText then
 		local loadout = self:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-		loadout:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, SF.GAP)
-		loadout:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 0, SF.GAP)
+		loadout:SetPoint("BOTTOMLEFT", self, "TOPLEFT", TEXT_INSET, SF.GAP)
+		loadout:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", -TEXT_INSET, SF.GAP)
 		loadout:SetJustifyH("LEFT")
 		loadout:SetWordWrap(false)
 		loadout:SetTextColor(0.9, 0.82, 0.55)
@@ -323,6 +340,16 @@ end
 -- Updates
 --------------------------------------------------------------------------------
 
+-- Read rather than hardcoded, so this keeps working across expansions. Both
+-- forms are present in 12.x; prefer the expansion-aware one.
+local function MaxPlayerLevel()
+	local get = GetMaxLevelForPlayerExpansion or GetMaxPlayerLevel
+	if not get then return nil end
+
+	local ok, level = pcall(get)
+	return ok and SF.Plain(level) or nil
+end
+
 function UnitFrameMixin:UpdateName()
 	local unit = self.unit
 	local name = UnitName(unit)
@@ -330,6 +357,13 @@ function UnitFrameMixin:UpdateName()
 	-- The name itself may be secret, so it is only ever passed to a widget
 	-- setter - never concatenated or run through string.format.
 	local level = self.opts.showLevel and SF.Plain(UnitLevel(unit)) or nil
+
+	-- Your own level at the cap carries no information, so it is dropped. The
+	-- target's is kept: there, the number still distinguishes one mob from
+	-- another.
+	if level and self.opts.hideMaxLevel and level == MaxPlayerLevel() then
+		level = nil
+	end
 
 	if level and level > 0 then
 		self.nameText:SetFormattedText("%d %s", level, name)
@@ -921,6 +955,10 @@ function UnitFrameMixin:ApplyLayout()
 
 	if self.power then
 		self.power:SetHeight(powerHeight)
+	end
+
+	if self.topBackdrop then
+		self.topBackdrop:SetShown(db.showTopBackdrop and true or false)
 	end
 
 	if self.castBar then
