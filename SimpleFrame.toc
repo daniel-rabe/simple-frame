@@ -1,7 +1,7 @@
 ## Interface: 120100
 ## Title: SimpleFrame
 ## Notes: Optionally replaces the player and target frames with simple health and power bars.
-## Author: dunek
+## Author: Daniel Rabe
 ## Version: 1.0.0
 ## SavedVariables: SimpleFrameDB
 ## IconTexture: Interface\AddOns\SimpleFrame\Icon.tga
