@@ -10,6 +10,5 @@
 Secrets.lua
 Core.lua
 UnitFrame.lua
-Auras.lua
 Blizzard.lua
 Options.lua

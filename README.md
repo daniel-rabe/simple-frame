@@ -2,9 +2,9 @@
 
 Minimal player and target unit frames for World of Warcraft retail.
 
-Flat health and power bars, a cast bar, a target-of-target bar, and buff/debuff
-icons on the target — with the option to hide Blizzard's frames entirely. No
-libraries, no media files, no dependencies.
+Flat health and power bars, a cast bar, a target-of-target bar, and Blizzard's
+own buff/debuff icons borrowed onto the target frame. No libraries, no media
+files, no dependencies.
 
 **Requires:** WoW retail 12.x (Midnight), Interface `120100`.
 
@@ -28,10 +28,12 @@ folder, so updating is a straight overwrite.
 
 - **Player frame** — health bar, power bar, name and level, health text, cast bar,
   and a 1px red outline around the frame while you are in combat.
-- **Target frame** — the same, plus aura icons with cooldown swipe, stack counts
-  and dispel-colored borders, and a classification line above the frame
-  (`Rare Elite Beast`, `Boss Dragonkin`, `Night Elf Druid`), and a yellow `!`
-  for enemies that count toward a quest.
+- **Target frame** — health and power bars, name and level, health text, a
+  classification line above the frame (`Rare Elite Beast`, `Boss Dragonkin`,
+  `Night Elf Druid`), and a yellow `!` for enemies that count toward a quest.
+- **Target auras** — Blizzard's own aura display, stripped off its frame and
+  parked on this one, with sliders for scale and position. It works in combat,
+  which no addon-drawn alternative can — see below.
 - **Leader and assist markers** — Blizzard’s own leader and assistant icons,
   on the player and target frames.
 - **Raid group number** in the middle of the player frame, while in a raid.
@@ -40,25 +42,27 @@ folder, so updating is a straight overwrite.
   **elapsed combat time** while fighting.
 - **Pet frame** — health and power bars at three-quarter size, independently
   movable, shown only while you have a pet.
-- **Target of target** — a health bar stacked directly under the target frame at
-  the same width, at 70% height.
+- **Target of target** — a health bar stacked against the target frame at the
+  same width, at 70% height, on whichever side the buff row is not using.
 - **Incoming heals and absorbs** overlaid on the health bars: the fill reads as
   current health, then incoming heals, then shield.
 - **Top backdrop** — optional dark backing behind the band above the frame.
 - **Flat bars** — solid single-color fills, no gradient, no border art.
 - **Class-colored health** for players, reaction-colored for NPCs; grey when
   dead or disconnected.
-- **Blizzard's frames are left alone** until you explicitly opt in to hiding them.
+- **Blizzard's player frame is left alone** until you opt in to hiding it. Its
+  target frame is always borrowed, for the auras.
 
 ### Aura layout
 
-The rows swap depending on who you are looking at, so the auras you care about
-are always the ones on top:
+Which side the buffs take is **Blizzard's Edit Mode setting**, not a SimpleFrame
+one: Edit Mode → Target Frame → *Buffs on top*. SimpleFrame has no checkbox for
+it, because an addon cannot write it — see below.
 
-| Target | Above the frame | Below the frame |
-|---|---|---|
-| Hostile | All buffs | Only the debuffs **you** applied |
-| Friendly | All debuffs (what you would dispel) | All buffs |
+SimpleFrame reads it and puts the target-of-target bar on the other side, so the
+two never compete for the same strip. With the bar above the frame it parks
+beyond the classification line, leaving that line welded to the bars it
+describes. Change it in Edit Mode and the bar moves as you leave.
 
 ## Usage
 
@@ -71,9 +75,9 @@ are always the ones on top:
 
 Left-click a frame to target the unit, right-click for the unit menu.
 
-While unlocked, dimmed placeholder icons show where the aura rows will sit, so
-you can position against the full footprint even with nothing targeted. The drag
-boxes swallow clicks, so targeting resumes once you `/sf lock`.
+The drag boxes swallow clicks, so targeting resumes once you `/sf lock`. The
+aura icons are Blizzard's and are positioned by their own offset sliders, not by
+dragging.
 
 ## Settings
 
@@ -81,35 +85,53 @@ Options → AddOns → SimpleFrame, or `/sf`.
 
 | Group | Settings |
 |---|---|
-| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, quest indicator, leader and assist, raid group number, talent loadout, combat timer, top backdrop, combat indicator, incoming heals and absorbs, class colored health |
-| Size | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both) |
-| Auras | Aura icon size, auras per row |
-| Target auras from Blizzard | Use Blizzard target auras, aura offset X, aura offset Y |
-| Default Blizzard frames | Hide Blizzard player frame, hide Blizzard target frame |
+| Frames | Player frame, target frame, pet frame, target of target |
+| Bars | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both), class colored health, incoming heals and absorbs |
+| Cast bars | Player cast bar, target cast bar |
+| On the frame | Combat indicator, raid group number |
+| Above the frame | Top backdrop, talent loadout, combat timer, target classification, quest indicator, leader and assist |
+| Target auras | Aura scale, aura offset X, aura offset Y |
+| Default Blizzard frames | Hide Blizzard player frame |
+
+Sections are grouped by where a setting shows up on the frame.
 
 Frame positions are set by dragging, not in the panel.
 
-## Target auras in combat
+## Target auras
 
 On 12.x an addon is refused access to a unit's auras once they are secret —
 `"Auras cannot be accessed when secret while tainted by ..."` — which in
 practice is every target in combat. Blizzard's own code is not tainted, so its
 aura display keeps working.
 
-**Use Blizzard target auras** (Options → AddOns → SimpleFrame) works around
-this: `TargetFrame` stays alive but is stripped down to its `Auras` container
-alone — portrait, border art, name, level, health and mana bars all hidden — and
-parked on the SimpleFrame target frame. Two offset sliders nudge the icons into
-place, since Blizzard positions them relative to its own frame.
+So SimpleFrame does not draw aura icons. `TargetFrame` stays alive but is
+stripped down to its `Auras` container alone — portrait, border art, name,
+level, health and mana bars all hidden — and parked on the SimpleFrame target
+frame. Scale and two offset sliders place the icons, since Blizzard positions
+them relative to its own frame.
 
-Blizzard's target cast bar comes along with the borrowed frame. It animates its
-own alpha while fading, so it overwrites any attempt to hide it and reappears in
-combat — so in this mode SimpleFrame drops its own target cast bar and lets
-Blizzard's serve instead.
+Earlier versions offered addon-drawn icons as an alternative. They only ever
+worked out of combat, which is when target auras matter least, so they are gone
+along with their settings. Anything left in your saved variables from them is
+pruned on load.
 
-This overrides *Hide Blizzard target frame*, which would otherwise take the
-aura display down with it. With it off, SimpleFrame draws its own aura icons,
-which work out of combat only.
+Three consequences of borrowing the whole frame:
+
+- **The target cast bar is Blizzard's.** It comes along with the frame, and
+  animates its own alpha while fading, so it overwrites any attempt to hide it
+  and reappears in combat. SimpleFrame draws no target cast bar of its own; the
+  player cast bar is unaffected.
+- **Blizzard's target frame cannot also be hidden**, since hiding it would take
+  the aura display with it. Only the player frame has a hide toggle.
+- **The buff side is set in Edit Mode**, not here. Writing `TargetFrame`'s
+  `buffsOnTop` field, or mirroring its aura container directly, taints the
+  container; Blizzard's next layout pass then compares `numVisibleAuraRows` — a
+  secret — and raises inside its own dirty-flag processing, which can leave the
+  aura display stuck until you reload. So SimpleFrame reads the setting and
+  never writes it.
+
+Turning the SimpleFrame target frame off leaves Blizzard's alone from then on,
+but a frame already stripped stays stripped until a `/reload`.
 
 ## Click-casting
 
@@ -144,17 +166,12 @@ practical consequences:
   untouched.
 - Health **percentage** comes from `UnitHealthPercent`, which evaluates the
   ratio engine-side.
-- Auras come from `C_UnitAuras.GetUnitAuras`. The older enumeration APIs
-  (`GetAuraDataByIndex` and `GetAuraSlots`) both *raise* once a unit's auras are
-  secret — `"Auras cannot be accessed when secret while tainted by ..."` — which
-  in practice is every target in combat, so neither can be used. The slot walk
-  remains only as a fallback for clients that predate `GetUnitAuras`.
-- Compound filters like `HARMFUL|PLAYER` return nothing through that API, so
-  "only my debuffs" is applied afterwards from each aura's
-  `isFromPlayerOrPlayerPet`. That check fails open: an unreadable source shows
-  the aura rather than hiding it.
-- Cooldown swipes and stack counts are dropped for any aura whose timings come
-  back secret; the icon still shows.
+- **Auras are not read, and the borrowed display is not reconfigured.** Every
+  enumeration API — `GetAuraDataByIndex`, `GetAuraSlots`,
+  `C_UnitAuras.GetUnitAuras` — is refused once a unit's auras are secret, so
+  Blizzard's own display is borrowed instead. Its container is only ever moved
+  and scaled from the outside; calling a layout setter *on* it taints it, and
+  Blizzard's own code then raises on a secret row count.
 - Incoming heals and absorbs come from `CreateUnitHealPredictionCalculator`,
   which does the arithmetic engine-side. **Addition on a secret raises just as
   comparison does** — a secret may only be passed to a widget setter, never
@@ -174,8 +191,7 @@ path to not reintroducing these errors.
 | `Secrets.lua` | Secret-value guards; loaded first |
 | `Core.lua` | Saved variables, defaults, lifecycle events, drag mode, slash commands |
 | `UnitFrame.lua` | Secure unit button factory: bars, texts, cast bar, layout |
-| `Auras.lua` | Target buff/debuff icon grid and drag placeholders |
-| `Blizzard.lua` | Hiding the default frames, and borrowing their aura display |
+| `Blizzard.lua` | Hiding the default player frame, and borrowing the target's aura display |
 | `Options.lua` | Settings panel registration |
 | `Icon.tga` | Addon list icon, referenced by `## IconTexture` |
 

@@ -810,17 +810,7 @@ end
 -- setting key, so the player and target bars toggle independently.
 function UnitFrameMixin:CastBarEnabled()
 	local key = self.opts.castBarKey
-	if not key or not SimpleFrameDB[key] then return false end
-
-	-- Borrowing Blizzard's target frame brings its cast bar along, and that one
-	-- animates its own alpha while fading, so it overwrites any attempt to hide
-	-- it and cannot be suppressed in combat. Rather than stack two cast bars,
-	-- ours stands down and Blizzard's serves as the target cast bar.
-	if self.unit == "target" and SimpleFrameDB.blizzardTargetAuras then
-		return false
-	end
-
-	return true
+	return (key and SimpleFrameDB[key]) and true or false
 end
 
 function UnitFrameMixin:UpdateCast()
@@ -880,7 +870,6 @@ end
 function UnitFrameMixin:UpdateAll()
 	if not UnitExists(self.unit) then
 		if self.castBar then StopCast(self.castBar) end
-		if self.opts.auras then SF:UpdateAuras(self) end
 		self:UpdateInfoText()
 		self:UpdateQuestIcon()
 		self:UpdateGroupIcon()
@@ -898,10 +887,6 @@ function UnitFrameMixin:UpdateAll()
 	self:UpdateGroupIcon()
 	self:UpdateGroupNumber()
 	self:UpdateLoadoutText()
-
-	if self.opts.auras then
-		SF:UpdateAuras(self)
-	end
 end
 
 --------------------------------------------------------------------------------
@@ -915,7 +900,16 @@ function UnitFrameMixin:RestorePosition()
 	if self.opts.attached then
 		local parent = SF.frames[self.opts.attachTo]
 		if parent then
-			anchor:SetPoint("TOPLEFT", parent.anchor, "BOTTOMLEFT", 0, -SF.GAP)
+			-- Opposite the buff row. Above the frame it clears the band that
+			-- carries the classification line and the corner markers, so the
+			-- bar parks beyond the target's own label rather than splitting
+			-- that label off from the bars it belongs to.
+			if SF.ToTOnTop() then
+				anchor:SetPoint("BOTTOMLEFT", parent.anchor, "TOPLEFT",
+					0, parent:TopContentOffset())
+			else
+				anchor:SetPoint("TOPLEFT", parent.anchor, "BOTTOMLEFT", 0, -SF.GAP)
+			end
 		else
 			anchor:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 		end
@@ -931,11 +925,18 @@ function UnitFrameMixin:RestorePosition()
 	end
 end
 
--- Vertical space consumed directly under this frame by an attached child (the
--- target-of-target bar), including the gap above it. Everything else that sits
--- below the frame - cast bar, debuff rows - starts past this.
-function UnitFrameMixin:AttachedHeight()
+-- Vertical space consumed on one side of this frame by an attached child (the
+-- target-of-target bar), including the gap next to it. `top` asks about the
+-- strip above the frame, anything else the strip below. The bar sits opposite
+-- the buff row, so only one of the two is ever occupied. Everything else on
+-- that side - the cast bar, the classification band - starts past this.
+function UnitFrameMixin:AttachedHeight(top)
 	local db = SimpleFrameDB
+
+	if (top and true or false) ~= SF.ToTOnTop() then
+		return 0
+	end
+
 	for _, other in pairs(SF.frames) do
 		if other.opts.attached and other.opts.attachTo == self.key then
 			local enableKey = other.opts.enableKey
@@ -945,6 +946,25 @@ function UnitFrameMixin:AttachedHeight()
 		end
 	end
 	return 0
+end
+
+-- Distance from the top of the frame to the first thing stacked above it, past
+-- the band carrying the classification line, the quest mark and the corner
+-- markers. The band belongs to this frame, so anything parked above - the
+-- target-of-target bar, Blizzard's borrowed aura icons - starts beyond it, and
+-- the aura offset sliders are measured from here. The space is reserved
+-- whenever the band is switched on, even for a target that has no label, so
+-- nothing jumps between targets.
+function UnitFrameMixin:TopContentOffset()
+	local db = SimpleFrameDB
+	local info = self.infoText and db.showTargetInfo
+	local quest = self.questIcon and db.showQuestIcon
+	local group = self.groupIcon and db.showGroupIcon
+
+	if info or quest or group then
+		return SF.GAP + SF.INFO_HEIGHT + SF.GAP
+	end
+	return SF.GAP
 end
 
 function UnitFrameMixin:ApplyLayout()
@@ -974,7 +994,7 @@ function UnitFrameMixin:ApplyLayout()
 	if self.castBar then
 		self.castBar:SetSize(width, SF.CAST_HEIGHT)
 		self.castBar:ClearAllPoints()
-		self.castBar:SetPoint("TOP", self, "BOTTOM", 0, -(SF.GAP + self:AttachedHeight()))
+		self.castBar:SetPoint("TOP", self, "BOTTOM", 0, -(SF.GAP + self:AttachedHeight(false)))
 		self.castBar.icon:SetSize(SF.CAST_HEIGHT, SF.CAST_HEIGHT)
 	end
 
@@ -1018,8 +1038,6 @@ local HANDLERS = {
 	UNIT_DISPLAYPOWER = "UpdateDisplayPower",
 	UNIT_NAME_UPDATE = "UpdateName",
 	UNIT_LEVEL = "UpdateName",
-	-- Full update, not just a recolor: friendliness also decides whether the
-	-- buff or the debuff row sits above the frame.
 	UNIT_FACTION = "UpdateAll",
 	UNIT_CONNECTION = "UpdateAll",
 	UNIT_CLASSIFICATION_CHANGED = "UpdateInfoText",
@@ -1043,8 +1061,6 @@ local function OnEvent(self, event)
 	local method = HANDLERS[event]
 	if method then
 		self[method](self)
-	elseif event == "UNIT_AURA" then
-		SF:UpdateAuras(self)
 	else
 		self:UpdateCast()
 	end
@@ -1079,9 +1095,6 @@ function UnitFrameMixin:RegisterEvents()
 		end
 	end
 
-	if self.opts.auras then
-		self:RegisterUnitEvent("UNIT_AURA", unit)
-	end
 end
 
 --------------------------------------------------------------------------------

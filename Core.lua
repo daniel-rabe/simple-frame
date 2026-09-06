@@ -16,13 +16,12 @@ SF.combatStart = nil
 -- Bar fills are generated solid-color textures, not texture files - see
 -- SetSolidFill in UnitFrame.lua.
 
--- Height of the cast bar, and the gap used between stacked elements. Auras.lua
--- needs both to know how far below the frame the debuff rows start.
+-- Height of the cast bar, and the gap used between stacked elements.
 SF.CAST_HEIGHT = 16
 SF.GAP = 4
 
--- Height reserved above the target frame for the classification line. Auras.lua
--- shifts the upper aura row by this so the two never overlap.
+-- Height reserved above the target frame for the classification line. Whatever
+-- is parked above the frame starts past it - see TopContentOffset.
 SF.INFO_HEIGHT = 12
 
 SF.defaults = {
@@ -31,8 +30,6 @@ SF.defaults = {
 	enablePet = true,
 	showToT = true,
 	showCastBarPlayer = true,
-	showCastBarTarget = true,
-	showAuras = true,
 	showTargetInfo = true,
 	showQuestIcon = true,
 	showGroupIcon = true,
@@ -43,20 +40,15 @@ SF.defaults = {
 	showHealPrediction = true,
 	showCombatBorder = true,
 	hideBlizzardPlayer = false,
-	hideBlizzardTarget = false,
-	-- Borrow Blizzard's untainted aura display for the target, since this addon
-	-- is refused access to secret aura data in combat.
-	blizzardTargetAuras = false,
 	blizzAuraX = -25,
 	blizzAuraY = 39,
+	blizzAuraScale = 1.0,
 	classColor = true,
 	width = 200,
 	height = 24,
 	powerHeight = 10,
 	scale = 1.0,
 	healthTextMode = 3, -- 0 none, 1 value, 2 percent, 3 both
-	auraSize = 22,
-	aurasPerRow = 8,
 	pos = {},
 }
 
@@ -65,6 +57,26 @@ SF.defaultPos = {
 	target = { "CENTER", 180, -140 },
 	pet = { "CENTER", -280, -215 }, -- below the player frame and its cast bar
 }
+
+-- Which side the target's buff row takes. Blizzard owns this outright: its Edit
+-- Mode "Buffs on top" checkbox writes TargetFrame.buffsOnTop, and its own code
+-- reads that to mirror the aura container and to place the cast bar.
+--
+-- SimpleFrame only reads it, so the target-of-target bar can park on the other
+-- side. Writing it is not available to an addon - see the note in Blizzard.lua.
+-- The fallback matches Blizzard's own default for a client that has not set the
+-- field yet.
+function SF.BuffsOnTop()
+	local f = _G.TargetFrame
+	if f and f.buffsOnTop ~= nil then
+		return f.buffsOnTop and true or false
+	end
+	return true
+end
+
+function SF.ToTOnTop()
+	return not SF.BuffsOnTop()
+end
 
 function SF:Print(msg)
 	DEFAULT_CHAT_FRAME:AddMessage("|cff33ff99SimpleFrame|r: " .. tostring(msg))
@@ -92,6 +104,14 @@ local OBSOLETE = {
 	"showCombatIcon", -- renamed to showCombatBorder
 	"showSpecText",   -- became showLoadoutName
 	"auraDebug", "auraDebugCombat", "auraDebugOOC", "blizzDump", -- old diagnostics
+	-- SimpleFrame no longer draws its own aura icons, so everything that only
+	-- configured them is gone, along with the switch that chose between the two
+	-- displays. Blizzard's target frame now serves them unconditionally, which
+	-- also retires its own cast bar and the option to hide that frame.
+	"showAuras", "auraSize", "aurasPerRow",
+	"blizzardTargetAuras", "showCastBarTarget", "hideBlizzardTarget",
+	-- The buff side is Blizzard's Edit Mode setting, read rather than stored.
+	"buffsOnTop",
 }
 
 local function PruneObsolete(db)
@@ -173,12 +193,12 @@ function SF:CreateAllFrames()
 		loadoutText = true,
 	})
 
+	-- No cast bar: borrowing Blizzard's target frame for its auras drags its
+	-- spell bar along, and that one cannot be suppressed, so it serves as the
+	-- target cast bar. See Blizzard.lua.
 	self:CreateUnitFrame("target", "target", {
 		enableKey = "enableTarget",
 		showLevel = true,
-		castBar = true,
-		castBarKey = "showCastBarTarget",
-		auras = true,
 		infoText = true,
 		questIcon = true,
 		groupIcon = true,
@@ -192,9 +212,9 @@ function SF:CreateAllFrames()
 		heightScale = 0.7,
 	})
 
-	-- Target of target: health only, stacked directly under the target frame at
-	-- the same width. UNIT_* events do not fire for the "targettarget" token,
-	-- so this one polls.
+	-- Target of target: health only, stacked against the target frame at the
+	-- same width, on whichever side the buff row is not using. UNIT_* events do
+	-- not fire for the "targettarget" token, so this one polls.
 	self:CreateUnitFrame("targettarget", "targettarget", {
 		enableKey = "showToT",
 		noPower = true,
@@ -253,14 +273,6 @@ function SF:SetUnlocked(unlocked)
 		end
 	end
 
-	-- Swap the real aura icons for placeholders (or back), so the aura rows are
-	-- part of the footprint you are positioning against.
-	for _, f in pairs(self.frames) do
-		if f.opts.auras then
-			self:UpdateAuras(f)
-		end
-	end
-
 	if unlocked then
 		self:Print("Frames unlocked - drag the green boxes, then /sf lock.")
 	else
@@ -302,7 +314,11 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 
 	elseif event == "PLAYER_ENTERING_WORLD" then
 		SF.inCombat = InCombatLockdown() and true or false
-		SF:UpdateBlizzardFrames()
+		-- A full re-apply as well as the refresh below: TargetFrame.buffsOnTop
+		-- may only have been filled in after login, and it decides which side
+		-- the target-of-target bar sits on. ApplyConfig stands down in combat,
+		-- so the refresh has to run on its own account.
+		SF:ApplyConfig()
 		SF:UpdateCombatIndicator()
 		for _, f in pairs(SF.frames) do
 			f:UpdateAll()
