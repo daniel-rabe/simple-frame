@@ -201,6 +201,16 @@ function UnitFrameMixin:BuildElements()
 
 		self.powerText = power:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 		self.powerText:SetPoint("RIGHT", power, "RIGHT", -4, 0)
+
+		-- The power bar hangs a pixel below the health bar so the two read as
+		-- separate bars. Nothing covers that seam - the bars are child frames,
+		-- so their own backgrounds stop at their edges - and the world shows
+		-- through it. Fill it with the same tint the bar backgrounds use.
+		local seam = self:CreateTexture(nil, "BACKGROUND")
+		seam:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, 0)
+		seam:SetPoint("BOTTOMRIGHT", power, "TOPRIGHT", 0, 0)
+		seam:SetColorTexture(0, 0, 0, 0.6)
+		self.barSeam = seam
 	end
 
 	if self.opts.infoText then
