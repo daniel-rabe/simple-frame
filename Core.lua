@@ -9,6 +9,10 @@ SF.unlocked = false
 -- Driven purely by PLAYER_REGEN_DISABLED/ENABLED plus InCombatLockdown on load,
 -- so the indicator never depends on a value that could come back secret.
 SF.inCombat = false
+
+-- Set only when combat actually starts, so it stays nil after a reload mid-fight
+-- rather than implying a start time we never saw.
+SF.combatStart = nil
 -- Bar fills are generated solid-color textures, not texture files - see
 -- SetSolidFill in UnitFrame.lua.
 
@@ -34,6 +38,7 @@ SF.defaults = {
 	showGroupIcon = true,
 	showGroupNumber = true,
 	showLoadoutName = true,
+	showCombatTime = true,
 	showHealPrediction = true,
 	showCombatBorder = true,
 	hideBlizzardPlayer = false,
@@ -124,6 +129,34 @@ function SF:UpdateCombatIndicator()
 	if player then
 		player:UpdateCombatIndicator()
 	end
+end
+
+function SF:UpdateLoadoutText()
+	local player = self.frames.player
+	if player then
+		player:UpdateLoadoutText()
+	end
+end
+
+-- Ticks the combat timer once a second while fighting. A ticker rather than an
+-- OnUpdate, so nothing runs at all out of combat.
+local combatTicker
+
+function SF:StartCombatTimer()
+	self.combatStart = GetTime()
+	if not combatTicker then
+		combatTicker = C_Timer.NewTicker(1, function() SF:UpdateLoadoutText() end)
+	end
+	self:UpdateLoadoutText()
+end
+
+function SF:StopCombatTimer()
+	self.combatStart = nil
+	if combatTicker then
+		combatTicker:Cancel()
+		combatTicker = nil
+	end
+	self:UpdateLoadoutText()
 end
 
 function SF:CreateAllFrames()
@@ -276,10 +309,12 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 	elseif event == "PLAYER_REGEN_DISABLED" then
 		SF.inCombat = true
 		SF:UpdateCombatIndicator()
+		SF:StartCombatTimer()
 
 	elseif event == "PLAYER_REGEN_ENABLED" then
 		SF.inCombat = false
 		SF:UpdateCombatIndicator()
+		SF:StopCombatTimer()
 		if applyPending then SF:ApplyConfig() end
 		if SF.blizzPending then SF:UpdateBlizzardFrames() end
 

@@ -36,7 +36,8 @@ folder, so updating is a straight overwrite.
   on the player and target frames.
 - **Raid group number** in the middle of the player frame, while in a raid.
 - **Talent loadout name** in the band above the player frame, falling back to
-  the specialization when no named loadout is active.
+  the specialization when no named loadout is active — replaced by the
+  **elapsed combat time** while fighting.
 - **Pet frame** — health and power bars at three-quarter size, independently
   movable, shown only while you have a pet.
 - **Target of target** — a health bar stacked directly under the target frame at
@@ -79,7 +80,7 @@ Options → AddOns → SimpleFrame, or `/sf`.
 
 | Group | Settings |
 |---|---|
-| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, quest indicator, leader and assist, raid group number, talent loadout, combat indicator, incoming heals and absorbs, class colored health |
+| Frames | Player frame, target frame, pet frame, target of target, player cast bar, target cast bar, target auras, target classification, quest indicator, leader and assist, raid group number, talent loadout, combat timer, combat indicator, incoming heals and absorbs, class colored health |
 | Size | Frame width, health bar height, power bar height, scale, health text (none / value / percent / both) |
 | Auras | Aura icon size, auras per row |
 | Target auras from Blizzard | Use Blizzard target auras, aura offset X, aura offset Y |

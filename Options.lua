@@ -73,6 +73,8 @@ function SF:SetupOptions()
 			"Mark the group leader with L and raid assistants with A, on the player and target frames.")
 		Checkbox("showGroupNumber", "Raid group number",
 			"Show your raid subgroup number in the middle of the player frame.")
+		Checkbox("showCombatTime", "Combat timer",
+			"While in combat, show the elapsed combat time in place of the talent loadout name.")
 		Checkbox("showLoadoutName", "Talent loadout",
 			"Show the name of your selected talent loadout above the player frame, "
 			.. "falling back to the specialization when no named loadout is active.")

@@ -517,12 +517,23 @@ local function CurrentSpecName()
 	return gotInfo and SF.Plain(name) or nil
 end
 
--- Talent loadout name in the band above the player frame, falling back to the
--- specialization when no named loadout is active - a starter or unsaved build,
--- or a character below the spec-unlock level.
+-- The band above the player frame carries the elapsed combat time while
+-- fighting, and the talent loadout name otherwise - falling back to the
+-- specialization when no named loadout is active, which covers a starter or
+-- unsaved build and any character below the spec-unlock level.
+--
+-- SF.combatStart is only set by PLAYER_REGEN_DISABLED, so reloading mid-fight
+-- leaves it unknown. That shows the loadout name rather than a timer counting
+-- from the reload, which would be a plausible-looking wrong number.
 function UnitFrameMixin:UpdateLoadoutText()
 	local fs = self.loadoutText
 	if not fs then return end
+
+	if SimpleFrameDB.showCombatTime and SF.inCombat and SF.combatStart then
+		local elapsed = GetTime() - SF.combatStart
+		fs:SetFormattedText("%d:%02d", floor(elapsed / 60), floor(elapsed % 60))
+		return
+	end
 
 	if not SimpleFrameDB.showLoadoutName then
 		fs:SetText("")
