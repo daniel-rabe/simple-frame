@@ -33,6 +33,7 @@ SF.defaults = {
 	showQuestIcon = true,
 	showGroupIcon = true,
 	showGroupNumber = true,
+	showLoadoutName = true,
 	showHealPrediction = true,
 	showCombatBorder = true,
 	hideBlizzardPlayer = false,
@@ -83,6 +84,7 @@ end
 local OBSOLETE = {
 	"showCastBar",    -- split into showCastBarPlayer / showCastBarTarget
 	"showCombatIcon", -- renamed to showCombatBorder
+	"showSpecText",   -- became showLoadoutName
 	"auraDebug", "auraDebugCombat", "auraDebugOOC", "blizzDump", -- old diagnostics
 }
 
@@ -133,6 +135,7 @@ function SF:CreateAllFrames()
 		combatBorder = true,
 		groupIcon = true,
 		groupNumber = true,
+		loadoutText = true,
 	})
 
 	self:CreateUnitFrame("target", "target", {
@@ -248,6 +251,7 @@ eventFrame:RegisterEvent("UNIT_PET")
 eventFrame:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
 eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 eventFrame:RegisterEvent("PARTY_LEADER_CHANGED")
+eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" then
@@ -290,6 +294,10 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 			local tot = SF.frames.targettarget
 			if tot then tot:UpdateAll() end
 		end
+
+	elseif event == "TRAIT_CONFIG_UPDATED" then
+		local player = SF.frames.player
+		if player then player:UpdateLoadoutText() end
 
 	elseif event == "GROUP_ROSTER_UPDATE" or event == "PARTY_LEADER_CHANGED" then
 		-- Neither carries a unit, so refresh both frames that can show a marker.

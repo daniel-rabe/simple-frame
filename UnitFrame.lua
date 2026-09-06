@@ -209,6 +209,16 @@ function UnitFrameMixin:BuildElements()
 		self.infoText = info
 	end
 
+	if self.opts.loadoutText then
+		local loadout = self:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+		loadout:SetPoint("BOTTOMLEFT", self, "TOPLEFT", 0, SF.GAP)
+		loadout:SetPoint("BOTTOMRIGHT", self, "TOPRIGHT", 0, SF.GAP)
+		loadout:SetJustifyH("LEFT")
+		loadout:SetWordWrap(false)
+		loadout:SetTextColor(0.9, 0.82, 0.55)
+		self.loadoutText = loadout
+	end
+
 	if self.opts.questIcon then
 		-- Shares the band above the frame with the classification line, which
 		-- is left-justified, so the right end is free.
@@ -459,6 +469,69 @@ end
 
 -- The exclamation mark Blizzard shows for units that count toward a quest.
 -- UnitIsQuestBoss is the same call its own target frame uses.
+-- The talent loadout name, as shown in the loadout dropdown. The chosen loadout
+-- is tracked by GetLastSelectedSavedConfigID; GetActiveConfigID is the fallback,
+-- and yields an unnamed config while on a starter or unsaved build.
+local function ConfigName(id)
+	if not id or not (C_Traits and C_Traits.GetConfigInfo) then return nil end
+
+	local ok, info = pcall(C_Traits.GetConfigInfo, id)
+	if not ok or not info then return nil end
+
+	local name = SF.Plain(info.name)
+	if name and name ~= "" then return name end
+end
+
+local function CurrentLoadoutName()
+	if not C_ClassTalents then return nil end
+
+	local specID = PlayerUtil and PlayerUtil.GetCurrentSpecID and PlayerUtil.GetCurrentSpecID()
+
+	if specID and C_ClassTalents.GetLastSelectedSavedConfigID then
+		local ok, savedID = pcall(C_ClassTalents.GetLastSelectedSavedConfigID, specID)
+		local name = ok and ConfigName(savedID)
+		if name then return name end
+	end
+
+	if C_ClassTalents.GetActiveConfigID then
+		local ok, activeID = pcall(C_ClassTalents.GetActiveConfigID)
+		if ok then return ConfigName(activeID) end
+	end
+end
+
+-- Both the namespaced and the older global forms of these are current in 12.x,
+-- so prefer the namespaced one and fall back.
+local function CurrentSpecName()
+	local getIndex = (C_SpecializationInfo and C_SpecializationInfo.GetSpecialization)
+		or GetSpecialization
+	local getInfo = (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo)
+		or GetSpecializationInfo
+	if not (getIndex and getInfo) then return nil end
+
+	local ok, index = pcall(getIndex)
+	index = ok and SF.Plain(index) or nil
+	if not index then return nil end
+
+	-- Returns id, name, description, icon, role, primaryStat.
+	local gotInfo, _, name = pcall(getInfo, index)
+	return gotInfo and SF.Plain(name) or nil
+end
+
+-- Talent loadout name in the band above the player frame, falling back to the
+-- specialization when no named loadout is active - a starter or unsaved build,
+-- or a character below the spec-unlock level.
+function UnitFrameMixin:UpdateLoadoutText()
+	local fs = self.loadoutText
+	if not fs then return end
+
+	if not SimpleFrameDB.showLoadoutName then
+		fs:SetText("")
+		return
+	end
+
+	fs:SetText(CurrentLoadoutName() or CurrentSpecName() or "")
+end
+
 -- Raid subgroup, shown in the middle of the health bar. Parties have no
 -- subgroups, so this only ever appears in a raid.
 function UnitFrameMixin:UpdateGroupNumber()
@@ -757,6 +830,7 @@ function UnitFrameMixin:UpdateAll()
 		self:UpdateQuestIcon()
 		self:UpdateGroupIcon()
 		self:UpdateGroupNumber()
+		self:UpdateLoadoutText()
 		return
 	end
 
@@ -768,6 +842,7 @@ function UnitFrameMixin:UpdateAll()
 	self:UpdateQuestIcon()
 	self:UpdateGroupIcon()
 	self:UpdateGroupNumber()
+	self:UpdateLoadoutText()
 
 	if self.opts.auras then
 		SF:UpdateAuras(self)
@@ -889,6 +964,7 @@ local HANDLERS = {
 	UNIT_FACTION = "UpdateAll",
 	UNIT_CONNECTION = "UpdateAll",
 	UNIT_CLASSIFICATION_CHANGED = "UpdateInfoText",
+	PLAYER_SPECIALIZATION_CHANGED = "UpdateLoadoutText",
 	UNIT_HEAL_PREDICTION = "UpdateHealthPrediction",
 	UNIT_ABSORB_AMOUNT_CHANGED = "UpdateHealthPrediction",
 	UNIT_HEAL_ABSORB_AMOUNT_CHANGED = "UpdateHealthPrediction",
