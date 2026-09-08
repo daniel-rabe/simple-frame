@@ -298,7 +298,12 @@ eventFrame:RegisterEvent("UNIT_PET")
 eventFrame:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
 eventFrame:RegisterEvent("GROUP_ROSTER_UPDATE")
 eventFrame:RegisterEvent("PARTY_LEADER_CHANGED")
+-- TRAIT_CONFIG_UPDATED only fires when a loadout's contents are saved. Picking
+-- a different saved loadout fires ACTIVE_COMBAT_CONFIG_CHANGED instead, so both
+-- are needed to keep the name on the player frame current. This is the pair
+-- LibSpecialization registers on retail.
 eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED")
+eventFrame:RegisterEvent("ACTIVE_COMBAT_CONFIG_CHANGED")
 
 eventFrame:SetScript("OnEvent", function(_, event, arg1)
 	if event == "ADDON_LOADED" then
@@ -348,9 +353,10 @@ eventFrame:SetScript("OnEvent", function(_, event, arg1)
 			if tot then tot:UpdateAll() end
 		end
 
-	elseif event == "TRAIT_CONFIG_UPDATED" then
-		local player = SF.frames.player
-		if player then player:UpdateLoadoutText() end
+	elseif event == "TRAIT_CONFIG_UPDATED" or event == "ACTIVE_COMBAT_CONFIG_CHANGED" then
+		-- Read a frame later: both events land before C_ClassTalents reports
+		-- the new selection, so reading now would just re-show the old name.
+		C_Timer.After(0, function() SF:UpdateLoadoutText() end)
 
 	elseif event == "GROUP_ROSTER_UPDATE" or event == "PARTY_LEADER_CHANGED" then
 		-- Neither carries a unit, so refresh both frames that can show a marker.
